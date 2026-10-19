@@ -36,14 +36,16 @@ export function paintBackground(ctx: Context2D, size: Size, settings: Background
 export class BackgroundLayer {
   private canvas: OffscreenCanvas | null = null;
   private key = "";
+  private wallpaper: ImageBitmap | null = null;
 
   get(size: Size, settings: BackgroundSettings, wallpaper: ImageBitmap | null): OffscreenCanvas {
-    const key = JSON.stringify([size.width, size.height, settings.kind, settings.color, settings.gradientEndColor, settings.gradientAngle, settings.wallpaper, wallpaper?.width]);
-    if (this.canvas && key === this.key) return this.canvas;
+    const key = JSON.stringify([size.width, size.height, settings.kind, settings.color, settings.gradientEndColor, settings.gradientAngle]);
+    if (this.canvas && key === this.key && wallpaper === this.wallpaper) return this.canvas;
     this.canvas = new OffscreenCanvas(size.width, size.height);
     const ctx = this.canvas.getContext("2d");
     if (ctx) paintBackground(ctx, size, settings, wallpaper);
     this.key = key;
+    this.wallpaper = wallpaper;
     return this.canvas;
   }
 }

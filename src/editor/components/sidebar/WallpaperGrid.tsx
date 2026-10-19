@@ -1,7 +1,7 @@
 import { IconUpload } from "@tabler/icons-react";
 import clsx from "clsx";
 import { useRef } from "react";
-import { WALLPAPERS, builtinWallpaper, builtinWallpaperValue, CUSTOM_WALLPAPER } from "@/render/wallpapers";
+import { ABSTRACT_WALLPAPERS, PAINTING_WALLPAPERS, builtinWallpaper, builtinWallpaperValue, CUSTOM_WALLPAPER, type Wallpaper } from "@/render/wallpapers";
 import { ActionButton } from "../controls";
 
 export function WallpaperGrid({ value, onSelect, onUpload }: {
@@ -20,22 +20,9 @@ export function WallpaperGrid({ value, onSelect, onUpload }: {
           {value === CUSTOM_WALLPAPER ? "Custom image" : selected?.name}
         </span>
       </div>
-      <div className="grid grid-cols-4 gap-1.5">
-        {WALLPAPERS.map((wallpaper) => (
-          <button
-            key={wallpaper.name}
-            type="button"
-            title={wallpaper.name}
-            onClick={() => onSelect(builtinWallpaperValue(wallpaper))}
-            className={clsx(
-              "relative aspect-video overflow-hidden rounded border-2 bg-surface-1 transition-all",
-              selected === wallpaper ? "border-ring ring-1 ring-ring/30" : "border-transparent hover:border-surface-3",
-            )}
-          >
-            <img src={wallpaper.thumbUrl} alt="" loading="lazy" className="size-full object-cover" />
-          </button>
-        ))}
-      </div>
+      <WallpaperOptions wallpapers={ABSTRACT_WALLPAPERS} selected={selected} onSelect={onSelect} />
+      <span className="block pt-1 text-[11px] text-muted-foreground">Paintings</span>
+      <WallpaperOptions wallpapers={PAINTING_WALLPAPERS} selected={selected} onSelect={onSelect} />
       <ActionButton onClick={() => inputRef.current?.click()}>
         <IconUpload size={15} stroke={1.8} />
         Choose from files…
@@ -51,6 +38,31 @@ export function WallpaperGrid({ value, onSelect, onUpload }: {
           event.target.value = "";
         }}
       />
+    </div>
+  );
+}
+
+function WallpaperOptions({ wallpapers, selected, onSelect }: {
+  wallpapers: readonly Wallpaper[];
+  selected: Wallpaper | undefined;
+  onSelect: (value: string) => void;
+}) {
+  return (
+    <div className="grid grid-cols-4 gap-1.5">
+      {wallpapers.map((wallpaper) => (
+        <button
+          key={wallpaper.name}
+          type="button"
+          title={wallpaper.name}
+          onClick={() => onSelect(builtinWallpaperValue(wallpaper))}
+          className={clsx(
+            "relative aspect-video overflow-hidden rounded border-2 bg-surface-1 transition-all",
+            selected === wallpaper ? "border-ring ring-1 ring-ring/30" : "border-transparent hover:border-surface-3",
+          )}
+        >
+          <img src={wallpaper.thumbUrl} alt="" loading="lazy" className="size-full object-cover" />
+        </button>
+      ))}
     </div>
   );
 }

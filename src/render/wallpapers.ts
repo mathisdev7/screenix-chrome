@@ -36,11 +36,30 @@ const WALLPAPER_FILES: readonly (readonly [name: string, file: string])[] = [
   ["Sean Fahrenbruch", "sean-fahrenbruch-g95tsUeCohM-unsplash"],
 ];
 
-export const WALLPAPERS: readonly Wallpaper[] = WALLPAPER_FILES.map(([name, file]) => ({
+const PAINTING_FILES: readonly (readonly [name: string, file: string])[] = [
+  ["The Birth of Venus", "botticelli-birth-of-venus"],
+  ["Primavera", "botticelli-primavera"],
+  ["The School of Athens", "raphael-school-of-athens"],
+  ["The Creation of Adam", "michelangelo-creation-of-adam"],
+  ["Annunciation", "leonardo-annunciation"],
+  ["The Hunters in the Snow", "bruegel-hunters-in-the-snow"],
+  ["The Harvesters", "bruegel-harvesters"],
+  ["The Tower of Babel", "bruegel-tower-of-babel"],
+];
+
+export const ABSTRACT_WALLPAPERS: readonly Wallpaper[] = WALLPAPER_FILES.map(([name, file]) => ({
   name,
   url: `${WALLPAPERS_BASE_URL}/${encodeURIComponent(`${file}.jpg`)}`,
   thumbUrl: `${WALLPAPER_THUMBS_BASE_URL}/${encodeURIComponent(`${file}-thumb.jpg`)}`,
 }));
+
+export const PAINTING_WALLPAPERS: readonly Wallpaper[] = PAINTING_FILES.map(([name, file]) => ({
+  name,
+  url: `/wallpapers/${file}.jpg`,
+  thumbUrl: `/wallpaper-thumbs/${file}.jpg`,
+}));
+
+export const WALLPAPERS: readonly Wallpaper[] = [...ABSTRACT_WALLPAPERS, ...PAINTING_WALLPAPERS];
 
 export const FEATURED_WALLPAPERS = WALLPAPERS.slice(0, 4);
 
@@ -54,28 +73,40 @@ export function builtinWallpaper(value: string | null): Wallpaper | undefined {
   return WALLPAPERS.find((wallpaper) => wallpaper.name === name);
 }
 
-const builtinCache = new Map<string, Promise<ImageBitmap>>();
+const MAX_WALLPAPER_SIDE = 4096;
 
-function loadBuiltin(wallpaper: Wallpaper): Promise<ImageBitmap> {
+const builtinCache = new Map<string, Promise<Blob>>();
+
+function fetchBuiltin(wallpaper: Wallpaper): Promise<Blob> {
   let cached = builtinCache.get(wallpaper.url);
   if (!cached) {
-    cached = fetch(wallpaper.url)
-      .then((response) => {
-        if (!response.ok) throw new Error(`Wallpaper request failed with ${response.status}`);
-        return response.blob();
-      })
-      .then((blob) => createImageBitmap(blob));
+    cached = fetch(wallpaper.url).then((response) => {
+      if (!response.ok) throw new Error(`Wallpaper request failed with ${response.status}`);
+      return response.blob();
+    });
     cached.catch(() => builtinCache.delete(wallpaper.url));
     builtinCache.set(wallpaper.url, cached);
   }
   return cached;
 }
 
+async function decodeWallpaper(blob: Blob): Promise<ImageBitmap> {
+  const image = await createImageBitmap(blob);
+  const scale = Math.min(1, MAX_WALLPAPER_SIDE / Math.max(image.width, image.height));
+  const resized = await createImageBitmap(image, {
+    resizeWidth: Math.round(image.width * scale),
+    resizeHeight: Math.round(image.height * scale),
+    resizeQuality: "high",
+  });
+  image.close();
+  return resized;
+}
+
 export async function loadWallpaper(value: string | null, projectId: ProjectId): Promise<ImageBitmap | null> {
   if (value === CUSTOM_WALLPAPER) {
     const blob = await getAsset(projectId, CUSTOM_WALLPAPER_ASSET_KEY);
-    return blob ? createImageBitmap(blob) : null;
+    return blob ? decodeWallpaper(blob) : null;
   }
   const wallpaper = builtinWallpaper(value);
-  return wallpaper ? loadBuiltin(wallpaper) : null;
+  return wallpaper ? decodeWallpaper(await fetchBuiltin(wallpaper)) : null;
 }
