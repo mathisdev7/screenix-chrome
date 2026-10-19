@@ -8,8 +8,12 @@ import type { SceneInputs } from "@/render/compositor";
 import type { ProjectMedia } from "@/render/projectMedia";
 import { ActionButton, SegmentedControl } from "./controls";
 import { currentLicense, type License } from "@/shared/license";
+import type { ProjectShare } from "@/shared/types";
 import { openLicenseDialog, openLicensePricing } from "../hooks/useLicense";
+import { isSharing, useShareLink } from "../hooks/useShareLink";
+import { rememberExport } from "../lib/exportCache";
 import { fileNameFor } from "../lib/format";
+import { ShareStatus } from "./ShareStatus";
 
 const RESOLUTIONS = [
   { value: "720", label: "720p" },
@@ -62,10 +66,14 @@ type SaveState =
   | { status: "canceled" }
   | { status: "failed"; message: string };
 
+type ExportIntent = "save" | "share";
+
+const SECONDARY_BUTTON = "min-h-[38px] w-full rounded-[9px] border px-3 text-[12px] font-medium transition-colors hover:bg-accent/70 disabled:opacity-45";
+
 type ExportState =
   | { status: "idle" }
   | { status: "exporting"; progress: number }
-  | { status: "done"; video: EncodedVideo; fileName: string; save: SaveState }
+  | { status: "done"; video: EncodedVideo; fileName: string; save: SaveState | null }
   | { status: "error"; message: string };
 
 function errorMessage(error: unknown): string {
@@ -114,12 +122,13 @@ function WatermarkNotice({ exported }: { exported: boolean }) {
   );
 }
 
-export function ExportDialog({ open, onOpenChange, media, inputs, license }: {
+export function ExportDialog({ open, onOpenChange, media, inputs, license, onShared }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   media: ProjectMedia;
   inputs: SceneInputs;
   license: License | null;
+  onShared: (share: ProjectShare) => void;
 }) {
   const [options, setOptions] = useState<ExportOptions>({ resolution: "1080", fps: 60, format: "mp4-av1", encoder: "software" });
   const [state, setState] = useState<ExportState>({ status: "idle" });
@@ -127,8 +136,13 @@ export function ExportDialog({ open, onOpenChange, media, inputs, license }: {
   const size = exportSize(inputs.settings, media.source, options.resolution);
   const exporting = state.status === "exporting";
   const support = useEncoderSupport(options, size.width, size.height);
+  const shareLink = useShareLink(media, inputs, onShared);
+  const shareable = options.format !== "webm-vp9";
+  const uploading = isSharing(shareLink.state);
 
-  const start = async () => {
+  const start = async (intent: ExportIntent) => {
+    shareLink.reset();
+    if (intent === "share" && !(await shareLink.ensureAccess())) return;
     const controller = new AbortController();
     abortRef.current = controller;
     setState({ status: "exporting", progress: 0 });
@@ -137,7 +151,13 @@ export function ExportDialog({ open, onOpenChange, media, inputs, license }: {
       const video = await exportVideo(media, inputs, options, watermarked, (progress) => {
         setState((current) => (current.status === "exporting" ? { status: "exporting", progress } : current));
       }, controller.signal);
-      await save(video, fileNameFor(media.project.name, video.extension));
+      rememberExport(media.project.id, inputs.settings, video, watermarked);
+      const fileName = fileNameFor(media.project.name, video.extension);
+      if (intent === "save") await save(video, fileName);
+      else {
+        setState({ status: "done", video, fileName, save: null });
+        await shareLink.share(video);
+      }
     } catch (error) {
       if (controller.signal.aborted) setState({ status: "idle" });
       else setState({ status: "error", message: errorMessage(error) });
@@ -160,6 +180,7 @@ export function ExportDialog({ open, onOpenChange, media, inputs, license }: {
   const close = (next: boolean) => {
     if (next) return onOpenChange(true);
     abortRef.current?.abort();
+    shareLink.reset();
     setState({ status: "idle" });
     onOpenChange(false);
   };
@@ -216,7 +237,9 @@ export function ExportDialog({ open, onOpenChange, media, inputs, license }: {
               <p className="text-[11px] tabular-nums text-muted-foreground">Rendering… {Math.round(state.progress * 100)}%</p>
             </div>
           )}
-          {state.status === "done" && <SaveStatus save={state.save} />}
+          {state.status === "done" && state.save && <SaveStatus save={state.save} />}
+          <ShareStatus share={shareLink.state} />
+          {!shareable && <p className="text-[11px] text-muted-foreground">Share links need an MP4 format.</p>}
           {license ? (
             <p className="flex items-center gap-2 text-[12px] text-muted-foreground">
               <span className="size-1.5 shrink-0 rounded-full bg-[#70b38f]" />
@@ -229,23 +252,46 @@ export function ExportDialog({ open, onOpenChange, media, inputs, license }: {
 
           <div className="flex gap-2">
             {exporting && <ActionButton variant="danger" onClick={() => abortRef.current?.abort()}>Cancel</ActionButton>}
-            {state.status === "done" && (
+            {uploading && <ActionButton variant="danger" onClick={shareLink.reset}>Cancel upload</ActionButton>}
+            {state.status === "done" && !uploading && (
               <>
-                <ActionButton disabled={state.save.status === "saving"} onClick={() => void save(state.video, state.fileName)}>
-                  Save again
+                <ActionButton disabled={state.save?.status === "saving"} onClick={() => void save(state.video, state.fileName)}>
+                  {state.save ? "Save again" : "Save"}
                 </ActionButton>
+                {shareLink.state.status === "shared" ? (
+                  <button type="button" onClick={() => void shareLink.copy()} className={SECONDARY_BUTTON}>Copy link</button>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={state.video.extension !== "mp4"}
+                    onClick={() => void shareLink.share(state.video)}
+                    className={SECONDARY_BUTTON}
+                  >
+                    Get link
+                  </button>
+                )}
                 <button
                   type="button"
-                  disabled={state.save.status === "saving" || support?.available !== true}
-                  onClick={() => void start()}
-                  className="min-h-[38px] w-full rounded-[9px] border px-3 text-[12px] font-medium transition-colors hover:bg-accent/70 disabled:opacity-45"
+                  disabled={state.save?.status === "saving" || support?.available !== true}
+                  onClick={() => void start("save")}
+                  className={SECONDARY_BUTTON}
                 >
                   Export again
                 </button>
               </>
             )}
             {(state.status === "idle" || state.status === "error") && (
-              <ActionButton disabled={support?.available !== true} onClick={() => void start()}>Export</ActionButton>
+              <>
+                <ActionButton disabled={support?.available !== true} onClick={() => void start("save")}>Export</ActionButton>
+                <button
+                  type="button"
+                  disabled={support?.available !== true || !shareable}
+                  onClick={() => void start("share")}
+                  className={SECONDARY_BUTTON}
+                >
+                  Get share link
+                </button>
+              </>
             )}
           </div>
         </Dialog.Popup>

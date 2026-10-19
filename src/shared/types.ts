@@ -75,6 +75,12 @@ export interface ProjectRecord {
   settings: EditorSettings | null;
   audioTracks?: AudioTrackInfo[];
   camera?: CameraInfo | null;
+  share?: ProjectShare | null;
+}
+
+export interface ProjectShare {
+  id: string;
+  url: string;
 }
 
 export interface ProjectAsset {

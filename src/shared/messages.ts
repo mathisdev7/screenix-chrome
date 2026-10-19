@@ -17,7 +17,7 @@ export type BackgroundRequest =
   | { type: "recording/stop" }
   | { type: "license/activate-key"; licenseKey: string };
 
-export type BackgroundResponse = { ok: true } | { ok: false; error: string };
+export type BackgroundResponse = { ok: true } | { ok: false; error: string; code?: string };
 
 export const RECORDING_STATUS_KEY = "recordingStatus";
 

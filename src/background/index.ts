@@ -6,7 +6,7 @@ import {
   type RecordingStatus,
   type TrackerControlMessage,
 } from "@/shared/messages";
-import { activateLicenseKey, refreshLicense } from "@/shared/license";
+import { activateLicenseKey, LicenseActivationError, refreshLicense } from "@/shared/license";
 import { RecordingSession } from "./recordingSession";
 
 const LICENSE_REFRESH_ALARM = "license-refresh";
@@ -69,7 +69,8 @@ async function handleRequest(request: BackgroundRequest): Promise<BackgroundResp
     }
     return { ok: true };
   } catch (error) {
-    return { ok: false, error: error instanceof Error ? error.message : String(error) };
+    const code = error instanceof LicenseActivationError && error.code ? { code: error.code } : {};
+    return { ok: false, error: error instanceof Error ? error.message : String(error), ...code };
   }
 }
 

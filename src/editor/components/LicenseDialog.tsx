@@ -1,11 +1,11 @@
 import { Dialog } from "@base-ui/react/dialog";
 import { IconX } from "@tabler/icons-react";
 import { useState, type FormEvent } from "react";
-import { activateLicenseKey, deactivateLicense, type License } from "@/shared/license";
+import { activateLicenseKey, deactivateLicense, LICENSE_ALREADY_ACTIVE, LicenseActivationError, type License } from "@/shared/license";
 import { closeLicenseDialog, openLicenseDashboard, openLicensePricing, useLicense, useLicenseDialogOpen } from "../hooks/useLicense";
 import { ActionButton } from "./controls";
 
-type Request = { status: "idle" } | { status: "pending" } | { status: "failed"; error: string };
+type Request = { status: "idle" } | { status: "pending" } | { status: "failed"; error: string; alreadyActive?: boolean };
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -66,7 +66,8 @@ function ActivateLicense() {
       setKey("");
       setRequest({ status: "idle" });
     } catch (error) {
-      setRequest({ status: "failed", error: errorMessage(error) });
+      const alreadyActive = error instanceof LicenseActivationError && error.code === LICENSE_ALREADY_ACTIVE;
+      setRequest({ status: "failed", error: errorMessage(error), alreadyActive });
     }
   };
 
@@ -83,7 +84,19 @@ function ActivateLicense() {
         onChange={(event) => setKey(event.target.value.toUpperCase())}
         className="sidebar-input h-10 w-full px-3 font-mono tracking-wide outline-none focus:border-ring"
       />
-      {request.status === "failed" && <p role="alert" className="text-[12px] text-destructive">{request.error}</p>}
+      {request.status === "failed" && (
+        <p role="alert" className="text-[12px] text-destructive">
+          {request.error}
+          {request.alreadyActive && (
+            <>
+              {" "}
+              <button type="button" onClick={openLicenseDashboard} className="font-medium text-ring underline underline-offset-2 hover:text-ring/80">
+                Manage licenses
+              </button>
+            </>
+          )}
+        </p>
+      )}
       <ActionButton type="submit" disabled={!key.trim() || request.status === "pending"}>
         {request.status === "pending" ? "Activating…" : "Activate"}
       </ActionButton>

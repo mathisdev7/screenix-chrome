@@ -1,8 +1,9 @@
 import { LICENSE_PUBLIC_KEY_SPKI } from "./licensePublicKey";
 import { SCREENIX_ORIGIN } from "./screenixOrigin";
 
-export const LICENSE_PRICING_URL = `${SCREENIX_ORIGIN}/chrome`;
+export const LICENSE_PRICING_URL = `${SCREENIX_ORIGIN}/chrome/pricing`;
 export const LICENSE_DASHBOARD_URL = `${SCREENIX_ORIGIN}/dashboard/licenses`;
+export const SHARES_DASHBOARD_URL = `${SCREENIX_ORIGIN}/dashboard/videos`;
 
 const STORAGE_KEY = "license";
 const INSTALL_ID_KEY = "installId";
@@ -14,6 +15,14 @@ const TOKEN_ISSUER = "api.screenix.app";
 const TOKEN_AUDIENCE = "screenix-chrome";
 const TOKEN_TYPE = "chrome-license";
 const OFFLINE_GRACE_MS = 7 * 24 * 60 * 60 * 1000;
+
+export class LicenseActivationError extends Error {
+  constructor(message: string, readonly code: string | null) {
+    super(message);
+  }
+}
+
+export const LICENSE_ALREADY_ACTIVE = "already_active";
 
 export interface License {
   email: string;
@@ -103,8 +112,8 @@ export async function activateLicenseKey(licenseKey: string): Promise<License> {
     body: JSON.stringify({ licenseKey: licenseKey.trim(), installId: await installId() }),
   }).catch(() => null);
   if (!response) throw new Error("Couldn't reach Screenix. Check your connection and try again.");
-  const body = (await response.json().catch(() => ({}))) as { token?: string; error?: string };
-  if (!response.ok || !body.token) throw new Error(body.error ?? "This license key couldn't be activated.");
+  const body = (await response.json().catch(() => ({}))) as { token?: string; error?: string; code?: string };
+  if (!response.ok || !body.token) throw new LicenseActivationError(body.error ?? "This license key couldn't be activated.", body.code ?? null);
   return storeLicenseToken(body.token, licenseKey.trim().slice(-KEY_HINT_LENGTH).toUpperCase());
 }
 
@@ -137,6 +146,12 @@ async function refreshStoredLicense(): Promise<void> {
   if (!response.ok) return;
   const body = (await response.json()) as { token?: string };
   if (body.token) await storeLicenseToken(body.token, stored.keyHint ?? null).catch(() => undefined);
+}
+
+export async function currentLicenseToken(): Promise<string | null> {
+  await refreshLicense();
+  if (!(await readLicense())) return null;
+  return (await readStoredLicense())?.token ?? null;
 }
 
 export async function currentLicense(): Promise<License | null> {

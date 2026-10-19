@@ -1,4 +1,4 @@
-import { IconArrowBackUp, IconArrowForwardUp, IconDownload, IconHome, IconMoon, IconSun } from "@tabler/icons-react";
+import { IconArrowBackUp, IconArrowForwardUp, IconDownload, IconHome, IconLink, IconMoon, IconSun, IconWorld } from "@tabler/icons-react";
 import { useState, type ReactNode } from "react";
 import type { Theme } from "../hooks/useTheme";
 
@@ -59,7 +59,7 @@ function ProjectTitle({ name, onRename }: { name: string; onRename: (name: strin
   );
 }
 
-export function TopBar({ projectName, onRename, onHome, onUndo, onRedo, canUndo, canRedo, theme, onToggleTheme, licensed, onRemoveWatermark, onEnterLicenseKey, onExport }: {
+export function TopBar({ projectName, onRename, onHome, onUndo, onRedo, canUndo, canRedo, theme, onToggleTheme, licensed, onRemoveWatermark, onEnterLicenseKey, shared, onShare, onExport }: {
   projectName: string;
   onRename: (name: string) => void;
   onHome: () => void;
@@ -72,6 +72,8 @@ export function TopBar({ projectName, onRename, onHome, onUndo, onRedo, canUndo,
   licensed: boolean;
   onRemoveWatermark: () => void;
   onEnterLicenseKey: () => void;
+  shared: boolean;
+  onShare: () => void;
   onExport: () => void;
 }) {
   return (
@@ -108,6 +110,15 @@ export function TopBar({ projectName, onRename, onHome, onUndo, onRedo, canUndo,
             </button>
           </>
         )}
+        <button
+          type="button"
+          title={shared ? "Manage the shared video" : "Get a share link"}
+          onClick={onShare}
+          className="flex h-7 items-center gap-1.5 rounded-lg border px-3 text-xs text-foreground transition-colors hover:bg-accent/70"
+        >
+          {shared ? <IconWorld size={14} stroke={2} className="text-[#70b38f]" /> : <IconLink size={14} stroke={2} />}
+          {shared ? "Shared" : "Share"}
+        </button>
         <button type="button" onClick={onExport} className="gold-button flex h-7 items-center gap-1.5 rounded-lg px-3 text-xs">
           <IconDownload size={14} stroke={2} />
           Export

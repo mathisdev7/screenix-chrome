@@ -3,8 +3,10 @@ import { trimmedRange } from "@/export/exportVideo";
 import type { ProjectMedia } from "@/render/projectMedia";
 import { CUSTOM_WALLPAPER, CUSTOM_WALLPAPER_ASSET_KEY } from "@/render/wallpapers";
 import { putAsset } from "@/shared/db";
-import type { ProjectId } from "@/shared/types";
+import type { ProjectId, ProjectShare } from "@/shared/types";
 import { ExportDialog } from "../components/ExportDialog";
+import { ManageShareDialog } from "../components/ManageShareDialog";
+import { ShareDialog } from "../components/ShareDialog";
 import { PreviewPane } from "../components/preview/PreviewPane";
 import { AudioPanel } from "../components/sidebar/AudioPanel";
 import { BackgroundPanel } from "../components/sidebar/BackgroundPanel";
@@ -44,7 +46,9 @@ function Editor({ media, onHome }: { media: ProjectMedia; onHome: () => void }) 
   const clock = usePlaybackClock(trim.start, trim.end);
   useAudioPlayback(clock, media.audio, settings.audio);
   const [exportOpen, setExportOpen] = useState(false);
+  const [shareDialog, setShareDialog] = useState<{ mode: "share" } | { mode: "manage"; share: ProjectShare } | null>(null);
   useEditorShortcuts(clock, undo, redo);
+  const setShare = useCallback((share: ProjectShare | null) => setProject((current) => ({ ...current, share })), []);
 
   const uploadWallpaper = useCallback(async (file: File) => {
     await putAsset({ projectId: project.id, key: CUSTOM_WALLPAPER_ASSET_KEY, blob: file });
@@ -82,6 +86,8 @@ function Editor({ media, onHome }: { media: ProjectMedia; onHome: () => void }) 
         licensed={licensed}
         onRemoveWatermark={openLicensePricing}
         onEnterLicenseKey={openLicenseDialog}
+        shared={Boolean(project.share)}
+        onShare={() => setShareDialog(project.share ? { mode: "manage", share: project.share } : { mode: "share" })}
         onExport={() => setExportOpen(true)}
       />
       <div className="grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)_auto] bg-[var(--editor-workspace-background)]">
@@ -98,7 +104,13 @@ function Editor({ media, onHome }: { media: ProjectMedia; onHome: () => void }) 
           onTrimChange={(next) => update({ trim: next }, "trim")}
         />
       </div>
-      {inputs && <ExportDialog open={exportOpen} onOpenChange={setExportOpen} media={{ ...media, project }} inputs={inputs} license={license} />}
+      {shareDialog?.mode === "manage" && (
+        <ManageShareDialog share={shareDialog.share} onDeleted={() => setShare(null)} onClose={() => setShareDialog(null)} />
+      )}
+      {shareDialog?.mode === "share" && inputs && (
+        <ShareDialog media={{ ...media, project }} inputs={inputs} onShared={setShare} onClose={() => setShareDialog(null)} />
+      )}
+      {inputs && <ExportDialog open={exportOpen} onOpenChange={setExportOpen} media={{ ...media, project }} inputs={inputs} license={license} onShared={setShare} />}
     </div>
   );
 }
