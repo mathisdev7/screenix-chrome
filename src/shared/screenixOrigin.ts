@@ -1,1 +1,1 @@
-export const SCREENIX_ORIGIN = "http://localhost:3000";
+export const SCREENIX_ORIGIN = "https://screenix.studio";
