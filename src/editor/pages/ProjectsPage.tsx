@@ -1,5 +1,5 @@
-import { IconMoon, IconSun, IconTrash } from "@tabler/icons-react";
-import { useEffect, useState } from "react";
+import { IconMoon, IconVideo, IconSearch, IconSun, IconTrash, IconX } from "@tabler/icons-react";
+import { useEffect, useMemo, useState } from "react";
 import { deleteProject, listProjects } from "@/shared/db";
 import type { ProjectId, ProjectRecord } from "@/shared/types";
 import { LicenseStatus } from "../components/LicenseStatus";
@@ -15,6 +15,22 @@ function Thumbnail({ blob }: { blob: Blob | null }) {
     : <div className="aspect-video w-full bg-surface-2" />;
 }
 
+function hasCamera(project: ProjectRecord) {
+  return !!project.camera?.frameCount && project.settings?.camera.enabled !== false;
+}
+
+function CameraBadge() {
+  return (
+    <span
+      title="Camera recorded"
+      className="absolute left-2 top-2 flex items-center gap-1 rounded-md bg-black/60 px-1.5 py-0.5 text-[11px] font-medium text-white"
+    >
+      <IconVideo size={12} stroke={1.8} />
+      Camera
+    </span>
+  );
+}
+
 function ProjectCard({ project, onOpen, onDelete }: {
   project: ProjectRecord;
   onOpen: () => void;
@@ -23,7 +39,10 @@ function ProjectCard({ project, onOpen, onDelete }: {
   return (
     <div className="group relative overflow-hidden rounded-xl border bg-surface-1 transition-colors hover:border-ring/60">
       <button type="button" onClick={onOpen} className="block w-full text-left">
-        <Thumbnail blob={project.thumbnail} />
+        <div className="relative">
+          <Thumbnail blob={project.thumbnail} />
+          {hasCamera(project) && <CameraBadge />}
+        </div>
         <div className="space-y-0.5 px-3 py-2.5">
           <p className="truncate text-[13px] font-medium">{project.name}</p>
           <p className="text-[11px] tabular-nums text-muted-foreground">
@@ -44,9 +63,46 @@ function ProjectCard({ project, onOpen, onDelete }: {
   );
 }
 
+function SearchBar({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+  return (
+    <div className="relative w-full max-w-[360px]">
+      <IconSearch size={14} stroke={1.8} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+      <input
+        type="search"
+        aria-label="Search recordings"
+        placeholder="Search recordings"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === "Escape") onChange("");
+        }}
+        className="h-8 w-full rounded-lg border bg-surface-1 pl-8 pr-8 text-[13px] outline-none placeholder:text-muted-foreground focus:border-ring [&::-webkit-search-cancel-button]:hidden"
+      />
+      {value && (
+        <button
+          type="button"
+          title="Clear search"
+          aria-label="Clear search"
+          onClick={() => onChange("")}
+          className="absolute right-1.5 top-1/2 grid size-5 -translate-y-1/2 place-items-center rounded-md text-muted-foreground hover:bg-accent/70 hover:text-foreground"
+        >
+          <IconX size={12} stroke={2} />
+        </button>
+      )}
+    </div>
+  );
+}
+
+function matchesQuery(project: ProjectRecord, query: string) {
+  const name = project.name.toLocaleLowerCase();
+  return query.toLocaleLowerCase().split(/\s+/).filter(Boolean).every((word) => name.includes(word));
+}
+
 export function ProjectsPage({ onOpen }: { onOpen: (id: ProjectId) => void }) {
   const [projects, setProjects] = useState<ProjectRecord[] | null>(null);
+  const [query, setQuery] = useState("");
   const { theme, toggleTheme } = useTheme();
+  const visible = useMemo(() => projects?.filter((project) => matchesQuery(project, query)), [projects, query]);
 
   useEffect(() => {
     void listProjects().then(setProjects);
@@ -60,12 +116,15 @@ export function ProjectsPage({ onOpen }: { onOpen: (id: ProjectId) => void }) {
 
   return (
     <div className="screenix-editor flex h-full flex-col bg-background">
-      <header className="flex h-12 shrink-0 items-center justify-between border-b px-4">
+      <header className="grid h-12 shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-4 border-b px-4">
         <div className="flex items-center gap-2">
           <img src="/icons/icon-32.png" alt="" className="size-5" />
           <span className="text-[13px] font-semibold">Screenix recordings</span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex w-[360px] justify-center">
+          {!!projects?.length && <SearchBar value={query} onChange={setQuery} />}
+        </div>
+        <div className="flex items-center justify-end gap-2">
           <LicenseStatus />
           <span className="mx-1 h-5 w-px bg-border" />
           <IconButton title={theme === "dark" ? "Light mode" : "Dark mode"} onClick={toggleTheme}>
@@ -82,8 +141,14 @@ export function ProjectsPage({ onOpen }: { onOpen: (id: ProjectId) => void }) {
             </p>
           </div>
         )}
+        {!!projects?.length && visible?.length === 0 && (
+          <div className="mx-auto mt-24 max-w-sm space-y-2 text-center">
+            <p className="text-[15px] font-semibold">No matching recordings</p>
+            <p className="text-[13px] text-muted-foreground">Nothing is named like "{query.trim()}".</p>
+          </div>
+        )}
         <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-4">
-          {projects?.map((project) => (
+          {visible?.map((project) => (
             <ProjectCard key={project.id} project={project} onOpen={() => onOpen(project.id)} onDelete={() => void remove(project)} />
           ))}
         </div>
