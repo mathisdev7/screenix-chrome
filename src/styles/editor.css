@@ -4,6 +4,7 @@
   --editor-button-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 2px 3px rgba(0, 0, 0, 0.14);
   --editor-timeline-video: linear-gradient(180deg, #d6c9aa, #c8b995);
   --editor-timeline-speed: linear-gradient(180deg, #9fb7e8, #86a1d8);
+  --editor-timeline-zoom: linear-gradient(180deg, #b3b0f2, #9a96e6);
 }
 
 .gold-button {
@@ -63,7 +64,11 @@
   background: var(--editor-timeline-speed);
 }
 
-.timeline-clip-speed[data-selected] {
+.timeline-clip-zoom {
+  background: var(--editor-timeline-zoom);
+}
+
+.timeline-clip-lane[data-selected] {
   box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.85);
 }
 

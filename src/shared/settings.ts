@@ -30,6 +30,7 @@ export interface BackgroundSettings {
   shadowBlur: number;
   glassBorderWidth: number;
   glassBorderOpacity: number;
+  zoomInsideFrame: boolean;
 }
 
 export interface CameraSettings {
@@ -60,6 +61,20 @@ export interface SpeedClip {
   rate: number;
 }
 
+export type ZoomMode = "auto" | "manual";
+
+export interface ZoomClip {
+  id: string;
+  start: number;
+  end: number;
+  scale: number;
+  mode: ZoomMode;
+  centerX: number;
+  centerY: number;
+  zoomIn: number;
+  zoomOut: number;
+}
+
 export interface EditorSettings {
   cursor: CursorSettings;
   background: BackgroundSettings;
@@ -68,6 +83,7 @@ export interface EditorSettings {
   aspectRatio: AspectRatioId;
   trim: TrimRange;
   speed: SpeedClip[];
+  zoom: ZoomClip[];
 }
 
 export const DEFAULT_CURSOR_SETTINGS: CursorSettings = {
@@ -96,6 +112,7 @@ export const DEFAULT_BACKGROUND_SETTINGS: BackgroundSettings = {
   shadowBlur: 40,
   glassBorderWidth: 0,
   glassBorderOpacity: 0.18,
+  zoomInsideFrame: false,
 };
 
 export const DEFAULT_CAMERA_SETTINGS: CameraSettings = {
@@ -123,6 +140,7 @@ export function createDefaultSettings(): EditorSettings {
     aspectRatio: "source",
     trim: { start: 0, end: null },
     speed: [],
+    zoom: [],
   };
 }
 
@@ -136,6 +154,7 @@ export function withDefaults(settings: Partial<EditorSettings> | null | undefine
     aspectRatio: settings?.aspectRatio ?? defaults.aspectRatio,
     trim: { ...defaults.trim, ...settings?.trim },
     speed: Array.isArray(settings?.speed) ? settings.speed : defaults.speed,
+    zoom: Array.isArray(settings?.zoom) ? settings.zoom : defaults.zoom,
   };
 }
 
@@ -147,6 +166,7 @@ export interface SettingsPatch {
   aspectRatio?: AspectRatioId;
   trim?: Partial<TrimRange>;
   speed?: SpeedClip[];
+  zoom?: ZoomClip[];
 }
 
 export function applySettingsPatch(settings: EditorSettings, patch: SettingsPatch): EditorSettings {
@@ -158,5 +178,6 @@ export function applySettingsPatch(settings: EditorSettings, patch: SettingsPatc
     aspectRatio: patch.aspectRatio ?? settings.aspectRatio,
     trim: patch.trim ? { ...settings.trim, ...patch.trim } : settings.trim,
     speed: patch.speed ?? settings.speed,
+    zoom: patch.zoom ?? settings.zoom,
   };
 }

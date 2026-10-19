@@ -4,6 +4,7 @@ import { loadCursorSprites, type CursorSprites } from "@/render/cursor/theme";
 import { buildCursorTimeline } from "@/render/cursor/timeline";
 import type { ProjectMedia } from "@/render/projectMedia";
 import { loadWallpaper } from "@/render/wallpapers";
+import { ZoomTimeline } from "@/render/zoom/zoomTimeline";
 import type { EditorSettings } from "@/shared/settings";
 
 function useCursorSprites(): CursorSprites | null {
@@ -50,9 +51,14 @@ export function useSceneInputs(media: ProjectMedia, settings: EditorSettings) {
     [media.pointer, settings.cursor.speed],
   );
 
+  const zoom = useMemo(
+    () => ZoomTimeline.build(settings.zoom, timeline.raw, media.project.duration),
+    [settings.zoom, timeline.raw, media.project.duration],
+  );
+
   const inputs = useMemo((): SceneInputs | null => (
-    sprites ? { settings, source: media.source, timeline, sprites, wallpaper: wallpaper.image } : null
-  ), [settings, media.source, timeline, sprites, wallpaper.image]);
+    sprites ? { settings, source: media.source, timeline, zoom, sprites, wallpaper: wallpaper.image } : null
+  ), [settings, media.source, timeline, zoom, sprites, wallpaper.image]);
 
   return { inputs, reloadWallpaper: wallpaper.reload };
 }

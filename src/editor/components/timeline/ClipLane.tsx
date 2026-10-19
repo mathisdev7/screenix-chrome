@@ -1,9 +1,7 @@
-import { IconBolt } from "@tabler/icons-react";
-import { useRef, type PointerEvent as ReactPointerEvent } from "react";
-import type { SpeedClip } from "@/shared/settings";
-import { formatRate, moveSpeedClip, resizeSpeedClip, type Bounds } from "../../lib/speedClips";
+import { useRef, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
+import { moveSpan, resizeSpan, type Bounds, type Span } from "../../lib/clipSpans";
 
-type SpeedDrag = { id: string; mode: "move"; grab: number } | { id: string; mode: "start" | "end" };
+type LaneDrag = { id: string; mode: "move"; grab: number } | { id: string; mode: "start" | "end" };
 
 function EdgeHandle({ side, onPointerDown }: { side: "start" | "end"; onPointerDown: (event: ReactPointerEvent) => void }) {
   return (
@@ -14,18 +12,21 @@ function EdgeHandle({ side, onPointerDown }: { side: "start" | "end"; onPointerD
   );
 }
 
-export function SpeedLane({ clips, selectedId, bounds, percent, timeAt, onSelect, onChange }: {
-  clips: readonly SpeedClip[];
+export function ClipLane<T extends Span>({ name, clips, selectedId, bounds, className, percent, timeAt, renderLabel, onSelect, onChange }: {
+  name: string;
+  clips: readonly T[];
   selectedId: string | null;
   bounds: Bounds;
+  className: string;
   percent: (seconds: number) => string;
   timeAt: (clientX: number) => number;
+  renderLabel: (clip: T) => ReactNode;
   onSelect: (id: string | null) => void;
-  onChange: (clips: SpeedClip[], coalesceKey: string) => void;
+  onChange: (clips: T[], coalesceKey: string) => void;
 }) {
-  const dragRef = useRef<SpeedDrag | null>(null);
+  const dragRef = useRef<LaneDrag | null>(null);
 
-  const beginDrag = (event: ReactPointerEvent, clip: SpeedClip, mode: SpeedDrag["mode"]) => {
+  const beginDrag = (event: ReactPointerEvent, clip: T, mode: LaneDrag["mode"]) => {
     event.stopPropagation();
     event.currentTarget.setPointerCapture(event.pointerId);
     onSelect(clip.id);
@@ -36,8 +37,8 @@ export function SpeedLane({ clips, selectedId, bounds, percent, timeAt, onSelect
     const drag = dragRef.current;
     if (!drag) return;
     const at = timeAt(event.clientX);
-    if (drag.mode === "move") onChange(moveSpeedClip(clips, drag.id, at - drag.grab, bounds), `speed.${drag.id}.move`);
-    else onChange(resizeSpeedClip(clips, drag.id, drag.mode, at, bounds), `speed.${drag.id}.${drag.mode}`);
+    if (drag.mode === "move") onChange(moveSpan(clips, drag.id, at - drag.grab, bounds), `${name}.${drag.id}.move`);
+    else onChange(resizeSpan(clips, drag.id, drag.mode, at, bounds), `${name}.${drag.id}.${drag.mode}`);
   };
 
   const endDrag = () => {
@@ -56,13 +57,12 @@ export function SpeedLane({ clips, selectedId, bounds, percent, timeAt, onSelect
           onPointerCancel={endDrag}
         >
           <div
-            className="timeline-clip-surface timeline-clip-speed flex cursor-grab items-center justify-center gap-1 text-[10px] active:cursor-grabbing"
+            className={`timeline-clip-surface timeline-clip-lane ${className} flex cursor-grab items-center justify-center gap-1 text-[10px] active:cursor-grabbing`}
             data-selected={clip.id === selectedId ? "" : undefined}
             title="Drag to move, drag the edges to resize"
             onPointerDown={(event) => beginDrag(event, clip, "move")}
           >
-            <IconBolt size={10} stroke={2.4} className="shrink-0" />
-            <span className="truncate">{formatRate(clip.rate)}</span>
+            {renderLabel(clip)}
           </div>
           <EdgeHandle side="start" onPointerDown={(event) => beginDrag(event, clip, "start")} />
           <EdgeHandle side="end" onPointerDown={(event) => beginDrag(event, clip, "end")} />

@@ -6,17 +6,7 @@ import { LicenseStatus } from "../components/LicenseStatus";
 import { IconButton } from "../components/TopBar";
 import { useTheme } from "../hooks/useTheme";
 import { formatDuration } from "../lib/format";
-
-const thumbnailUrls = new WeakMap<Blob, string>();
-
-function thumbnailUrl(blob: Blob): string {
-  let url = thumbnailUrls.get(blob);
-  if (!url) {
-    url = URL.createObjectURL(blob);
-    thumbnailUrls.set(blob, url);
-  }
-  return url;
-}
+import { thumbnailUrl } from "../lib/thumbnailUrl";
 
 function Thumbnail({ blob }: { blob: Blob | null }) {
   const url = blob ? thumbnailUrl(blob) : null;

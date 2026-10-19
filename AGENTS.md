@@ -44,7 +44,7 @@ Two Vite builds:
 
 - Times are seconds since recording start. Capture-side epoch milliseconds are converted in the service worker.
 - Pointer samples are normalized to the tab viewport (0–1) and carry `tabId`, `kind` (`move` / `down` / `up` / `leave`), `button` (DOM numbering, 0 = left) and `shape`.
-- IndexedDB `screenix` v1 stores: `projects`, `frames` (`[projectId, seq]`), `pointer` (batches), `assets` (custom wallpaper).
+- IndexedDB `screenix` stores: `projects`, `frames` (`[projectId, seq]`), `pointer` (batches), `assets` (custom wallpaper).
 - Editor settings live on the project record and mirror Screenix defaults: cursor size 6.5% of video width, shadow 0.6, speed 0.5, sway 0.3, motion blur 0.5, screen scale 0.85, corner radius 28, shadow blur 40.
 
 ## Decisions and why
@@ -80,6 +80,14 @@ Two Vite builds:
 - License status is shown on the recordings page header (`LicenseStatus`), in the popup, and in the export dialog (watermark or not).
 - Website pieces: `lib/chrome-license.ts`, `app/api/chrome/license/{activate,refresh,deactivate}`, `app/chrome/page.tsx`, `components/chrome/`, migration `0050_chrome_license.sql`, optional `STRIPE_CHROME_PRICE_ID` (otherwise an inline $19 price).
 
+## Zoom
+
+- Ported from the Screenix desktop editor (`ui/src/lib/zoomCameraEngine.ts`, `ui/src/lib/zoom/autoZoomEngine.ts`). Settings: `zoom` is a list of `{ id, start, end, scale, mode, centerX, centerY, zoomIn, zoomOut }` in recording seconds (scale 1–4×, transitions 0.1–2 s). Zoom-in runs inside the clip, zoom-out after its end, both capped at half the clip length.
+- Two modes. "Auto" (`mode: "auto"`) is the desktop's deadzone mode: cursor positions are grouped into buckets the size of half the visible area, and a spring pans to the next bucket when the cursor leaves it. "Manual" (`mode: "manual"`) is the desktop's `static_region`: a fixed area, with a 1 s pan between manual clips less than 1.5 s apart. The desktop's experimental `auto_zoom` spring engine and its follow modes are not ported.
+- New clips (Add zoom: 1.5 s at the playhead, 1.5×) and click-generated clips are both Auto. Auto zoom uses the desktop click ranges (300 ms before each click to 2.5 s after, merged when less than 2.5 s apart, ending 0.8 s before the end) and replaces all zoom clips. Projects whose settings have no `zoom` field get these clips when the editor opens.
+- `src/render/zoom/zoomTimeline.ts` simulates the camera at 120 Hz once per change, only inside clip windows, so preview, scrubbing and export get the same frame. With a background, "Zoom inside frame" (`background.zoomInsideFrame`, off by default, in the Background panel like the desktop's `floatingZoomContentOnly`) chooses how zoom is drawn: off zooms the whole scene (background, frame, shadow, screen and cursor) so the zoomed area fills the frame's place; on keeps the frame fixed and zooms only its content. The camera bubble is never zoomed. Canvas shadows and filters ignore the transform, so the frame shadow and glass blur are scaled by the current transform.
+- UI: Zoom sidebar tab (`ZoomPanel`, with a region picker on the project thumbnail for Manual), a zoom lane above the speed lane (`ClipLane`, shared with speed clips; overlap and trim rules in `src/editor/lib/clipSpans.ts`), and Add zoom in the timeline toolbar. Selecting a zoom clip opens the Zoom tab; Delete removes it.
+
 ## Speed clips
 
 - Settings: `speed` is a list of `{ id, start, end, rate }` in recording seconds (rate 0.25–16×), like the Screenix desktop app's speed clips. Editing helpers (add at the playhead as 2 s at 2×, move, resize, rate, delete; no overlaps, kept inside the trim) live in `src/editor/lib/speedClips.ts`; the timeline shows them in a lane under the clip (`SpeedLane`, `SpeedControls`).
@@ -106,7 +114,7 @@ Chrome never injects content scripts into `chrome-extension://` pages, including
 The editor runs from a static server because it only needs IndexedDB:
 
 1. `bun run build`, then serve `dist/` (for example `python3 -m http.server 8766 --bind 127.0.0.1` in the background).
-2. The editor reads the license from `chrome.storage`, so stub `globalThis.chrome` (storage get/set/onChanged, tabs.create) before the app loads, or test license-free code paths only. Then open `http://127.0.0.1:8766/editor.html` in the browser pane and seed a project into IndexedDB `screenix` v1 with a script: a `projects` record, `frames` records (JPEG blobs) and a `pointer` batch.
+2. The editor reads the license from `chrome.storage`, so stub `globalThis.chrome` (storage local/session get/set/onChanged, tabs.create) before the app loads, or test license-free code paths only. Then open `http://127.0.0.1:8766/editor.html` in the browser pane and seed a project into IndexedDB `screenix` (open it without a version once the app has created it) with a script: a `projects` record, `frames` records (JPEG blobs) and a `pointer` batch.
 3. Open `editor.html?project=<id>`. To test exports without downloading files, override `HTMLAnchorElement.prototype.click` to capture the blob, then decode it with a `<video>` element.
 4. Delete the test database and stop the server afterwards.
 
@@ -117,7 +125,6 @@ The browser pane uses software encoders and SwiftShader, so GPU-specific bugs do
 Working and checked by the user: tab recording with tab following, cursor re-rendering, editor, and clean MP4 · AV1 export (30/60/120 fps).
 
 Open:
-- Auto-zoom on clicks (deliberately not started; the cursor timeline and click data are ready for it).
 - "Share to Screenix" hosted links.
 - Chrome Web Store listing and review (debugger permission justification).
 - Initial git commit; nothing is committed yet.

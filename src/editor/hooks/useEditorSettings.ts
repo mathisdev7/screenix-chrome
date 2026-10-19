@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useReducer } from "react";
 import { putProject } from "@/shared/db";
-import { applySettingsPatch, withDefaults, type EditorSettings, type SettingsPatch } from "@/shared/settings";
+import { applySettingsPatch, withDefaults, type EditorSettings, type SettingsPatch, type ZoomClip } from "@/shared/settings";
 import type { ProjectRecord } from "@/shared/types";
 
 const COALESCE_WINDOW_MS = 1000;
@@ -57,10 +57,15 @@ export interface EditorSettingsController {
   canRedo: boolean;
 }
 
-export function useEditorSettings(project: ProjectRecord): EditorSettingsController {
+function initialSettings(project: ProjectRecord, initialZoom: () => ZoomClip[]): EditorSettings {
+  const settings = withDefaults(project.settings);
+  return Array.isArray(project.settings?.zoom) ? settings : { ...settings, zoom: initialZoom() };
+}
+
+export function useEditorSettings(project: ProjectRecord, initialZoom: () => ZoomClip[]): EditorSettingsController {
   const [state, dispatch] = useReducer(historyReducer, project, (initial): HistoryState => ({
     past: [],
-    present: withDefaults(initial.settings),
+    present: initialSettings(initial, initialZoom),
     future: [],
     coalesceKey: null,
     coalesceAt: 0,

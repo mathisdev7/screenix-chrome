@@ -1,15 +1,16 @@
-import { IconVideo } from "@tabler/icons-react";
+import { IconBolt, IconVideo, IconZoomIn } from "@tabler/icons-react";
 import clsx from "clsx";
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import type { TimeMap } from "@/render/timeMap";
-import type { SpeedClip, TrimRange } from "@/shared/settings";
+import type { SpeedClip, TrimRange, ZoomClip } from "@/shared/settings";
 import { useElementSize } from "../../hooks/useElementSize";
 import { formatDuration } from "../../lib/format";
 import type { PlaybackClock } from "../../playback/PlaybackClock";
 import { usePlaybackSnapshot } from "../../playback/usePlayback";
-import { addSpeedClip, removeSpeedClip, setSpeedRate, speedClipAt } from "../../lib/speedClips";
+import { addSpeedClip, formatRate, removeSpeedClip, setSpeedRate, speedClipAt } from "../../lib/speedClips";
+import { formatScale, removeZoomClip } from "../../lib/zoomClips";
+import { ClipLane } from "./ClipLane";
 import { SpeedControls } from "./SpeedControls";
-import { SpeedLane } from "./SpeedLane";
 import { TimelineToolbar } from "./TimelineToolbar";
 import { formatTick, tickStep, tickTimes } from "./timelineScale";
 
@@ -36,42 +37,62 @@ function isTyping(target: EventTarget | null): boolean {
   return target instanceof HTMLElement && (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName));
 }
 
-export function Timeline({ clock, duration, map, speed, onTrimChange, onSpeedChange }: {
+export function Timeline({ clock, duration, map, speed, zoomClips, selectedZoomId, onTrimChange, onSpeedChange, onZoomChange, onSelectZoom, onAddZoom }: {
   clock: PlaybackClock;
   duration: number;
   map: TimeMap;
   speed: readonly SpeedClip[];
+  zoomClips: readonly ZoomClip[];
+  selectedZoomId: string | null;
   onTrimChange: (trim: Partial<TrimRange>) => void;
   onSpeedChange: (speed: SpeedClip[], coalesceKey?: string) => void;
+  onZoomChange: (zoom: ZoomClip[], coalesceKey?: string) => void;
+  onSelectZoom: (id: string | null) => void;
+  onAddZoom: () => void;
 }) {
   const { time, playing } = usePlaybackSnapshot(clock);
   const trim = { start: map.sourceStart, end: map.sourceEnd };
   const [selectedSpeedId, setSelectedSpeedId] = useState<string | null>(null);
   const selectedSpeed = speed.find((clip) => clip.id === selectedSpeedId) ?? null;
 
+  const selectSpeed = (id: string | null) => {
+    setSelectedSpeedId(id);
+    if (id) onSelectZoom(null);
+  };
+
+  const selectZoom = (id: string | null) => {
+    onSelectZoom(id);
+    if (id) setSelectedSpeedId(null);
+  };
+
   useEffect(() => {
-    if (!selectedSpeedId) return;
+    if (!selectedSpeedId && !selectedZoomId) return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (isTyping(event.target) || (event.key !== "Delete" && event.key !== "Backspace")) return;
       event.preventDefault();
-      onSpeedChange(removeSpeedClip(speed, selectedSpeedId));
-      setSelectedSpeedId(null);
+      if (selectedSpeedId) {
+        onSpeedChange(removeSpeedClip(speed, selectedSpeedId));
+        setSelectedSpeedId(null);
+      } else if (selectedZoomId) {
+        onZoomChange(removeZoomClip(zoomClips, selectedZoomId));
+        onSelectZoom(null);
+      }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [selectedSpeedId, speed, onSpeedChange]);
+  }, [selectedSpeedId, selectedZoomId, speed, zoomClips, onSpeedChange, onZoomChange, onSelectZoom]);
 
   const addSpeed = () => {
     const existing = speedClipAt(speed, time);
     if (existing) {
-      setSelectedSpeedId(existing.id);
+      selectSpeed(existing.id);
       return;
     }
     const id = crypto.randomUUID();
     const next = addSpeedClip(speed, time, trim, id);
     if (!next) return;
     onSpeedChange(next);
-    setSelectedSpeedId(id);
+    selectSpeed(id);
   };
   const [zoom, setZoom] = useState(1);
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -124,6 +145,7 @@ export function Timeline({ clock, duration, map, speed, onTrimChange, onSpeedCha
         playing={playing}
         zoom={zoom}
         onAddSpeed={addSpeed}
+        onAddZoom={onAddZoom}
         onToggle={() => clock.toggle()}
         onStep={(direction) => {
           clock.pause();
@@ -182,14 +204,42 @@ export function Timeline({ clock, duration, map, speed, onTrimChange, onSpeedCha
             </div>
           </div>
 
+          {zoomClips.length > 0 && (
+            <ClipLane
+              name="zoom"
+              clips={zoomClips}
+              selectedId={selectedZoomId}
+              bounds={trim}
+              className="timeline-clip-zoom"
+              percent={percent}
+              timeAt={timeAt}
+              renderLabel={(clip) => (
+                <>
+                  <IconZoomIn size={10} stroke={2.4} className="shrink-0" />
+                  <span className="truncate">{clip.mode === "auto" ? "Auto" : "Manual"} · {formatScale(clip.scale)}</span>
+                </>
+              )}
+              onSelect={selectZoom}
+              onChange={onZoomChange}
+            />
+          )}
+
           {speed.length > 0 && (
-            <SpeedLane
+            <ClipLane
+              name="speed"
               clips={speed}
               selectedId={selectedSpeedId}
               bounds={trim}
+              className="timeline-clip-speed"
               percent={percent}
               timeAt={timeAt}
-              onSelect={setSelectedSpeedId}
+              renderLabel={(clip) => (
+                <>
+                  <IconBolt size={10} stroke={2.4} className="shrink-0" />
+                  <span className="truncate">{formatRate(clip.rate)}</span>
+                </>
+              )}
+              onSelect={selectSpeed}
               onChange={onSpeedChange}
             />
           )}
@@ -208,7 +258,7 @@ export function Timeline({ clock, duration, map, speed, onTrimChange, onSpeedCha
           onRate={(rate) => onSpeedChange(setSpeedRate(speed, selectedSpeed.id, rate), `speed.${selectedSpeed.id}.rate`)}
           onRemove={() => {
             onSpeedChange(removeSpeedClip(speed, selectedSpeed.id));
-            setSelectedSpeedId(null);
+            selectSpeed(null);
           }}
         />
       )}

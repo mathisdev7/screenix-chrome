@@ -3,6 +3,7 @@ import { TimeMap } from "@/render/timeMap";
 import type { ProjectMedia } from "@/render/projectMedia";
 import { CUSTOM_WALLPAPER, CUSTOM_WALLPAPER_ASSET_KEY } from "@/render/wallpapers";
 import { putAsset } from "@/shared/db";
+import type { ZoomClip } from "@/shared/settings";
 import type { ProjectId, ProjectShare } from "@/shared/types";
 import { ExportDialog } from "../components/ExportDialog";
 import { ManageShareDialog } from "../components/ManageShareDialog";
@@ -13,12 +14,14 @@ import { BackgroundPanel } from "../components/sidebar/BackgroundPanel";
 import { CameraPanel } from "../components/sidebar/CameraPanel";
 import { CursorPanel } from "../components/sidebar/CursorPanel";
 import { RatioPanel } from "../components/sidebar/RatioPanel";
+import { ZoomPanel } from "../components/sidebar/ZoomPanel";
 import { Sidebar, type SidebarTab } from "../components/sidebar/Sidebar";
 import { Timeline } from "../components/timeline/Timeline";
 import { TopBar } from "../components/TopBar";
 import { useEditorSettings } from "../hooks/useEditorSettings";
 import { useEditorShortcuts } from "../hooks/useEditorShortcuts";
 import { useCameraImport } from "../hooks/useCameraImport";
+import { addZoomClip, autoZoomClips, zoomClipAt } from "../lib/zoomClips";
 import { openLicenseDialog, openLicensePricing, useLicense } from "../hooks/useLicense";
 import { useProjectMedia } from "../hooks/useProjectMedia";
 import { useSceneInputs } from "../hooks/useSceneInputs";
@@ -38,7 +41,11 @@ export function EditorPage({ projectId, onHome }: { projectId: ProjectId; onHome
 
 function Editor({ media, onHome }: { media: ProjectMedia; onHome: () => void }) {
   const [project, setProject] = useState(media.project);
-  const { settings, update, undo, redo, canUndo, canRedo } = useEditorSettings(project);
+  const createAutoZoom = useCallback(
+    () => autoZoomClips(media.pointer, media.project.duration, () => crypto.randomUUID()),
+    [media.pointer, media.project.duration],
+  );
+  const { settings, update, undo, redo, canUndo, canRedo } = useEditorSettings(project, createAutoZoom);
   const { inputs, reloadWallpaper } = useSceneInputs(media, settings);
   const { theme, toggleTheme } = useTheme();
   const { license, loading: licenseLoading } = useLicense();
@@ -47,6 +54,33 @@ function Editor({ media, onHome }: { media: ProjectMedia; onHome: () => void }) 
   const timeMap = useMemo(() => TimeMap.from(trim, speed, project.duration), [trim, speed, project.duration]);
   const clock = usePlaybackClock(timeMap);
   const changeSpeed = useCallback((next: typeof speed, coalesceKey?: string) => update({ speed: next }, coalesceKey), [update]);
+  const changeZoom = useCallback((next: ZoomClip[], coalesceKey?: string) => update({ zoom: next }, coalesceKey), [update]);
+  const [sidebarTab, setSidebarTab] = useState<SidebarTab>("cursor");
+  const [selectedZoomId, setSelectedZoomId] = useState<string | null>(null);
+  const hasClicks = useMemo(() => media.pointer.some((sample) => sample.kind === "down"), [media.pointer]);
+
+  const selectZoom = useCallback((id: string | null) => {
+    setSelectedZoomId(id);
+    if (id) setSidebarTab("zoom");
+  }, []);
+
+  const addZoom = () => {
+    const existing = zoomClipAt(settings.zoom, clock.time);
+    if (existing) {
+      selectZoom(existing.id);
+      return;
+    }
+    const id = crypto.randomUUID();
+    const next = addZoomClip(settings.zoom, clock.time, { start: timeMap.sourceStart, end: timeMap.sourceEnd }, id);
+    if (!next) return;
+    changeZoom(next);
+    selectZoom(id);
+  };
+
+  const autoZoom = () => {
+    changeZoom(createAutoZoom());
+    selectZoom(null);
+  };
   useAudioPlayback(clock, media.audio, settings.audio);
   const [exportOpen, setExportOpen] = useState(false);
   const [shareDialog, setShareDialog] = useState<{ mode: "share" } | { mode: "manage"; share: ProjectShare } | null>(null);
@@ -64,6 +98,20 @@ function Editor({ media, onHome }: { media: ProjectMedia; onHome: () => void }) 
     switch (tab) {
       case "cursor":
         return <CursorPanel cursor={settings.cursor} onChange={update} />;
+      case "zoom":
+        return (
+          <ZoomPanel
+            clips={settings.zoom}
+            selectedId={selectedZoomId}
+            source={media.source}
+            thumbnail={project.thumbnail}
+            canAutoZoom={hasClicks}
+            onAdd={addZoom}
+            onAutoZoom={autoZoom}
+            onSelect={selectZoom}
+            onChange={changeZoom}
+          />
+        );
       case "camera":
         return (
           <CameraPanel
@@ -107,15 +155,20 @@ function Editor({ media, onHome }: { media: ProjectMedia; onHome: () => void }) 
           <section className="order-1 flex min-w-0 flex-1 flex-col px-3 pb-2 pt-3">
             {inputs ? <PreviewPane media={media} inputs={inputs} clock={clock} onChange={update} /> : <CenteredMessage>Preparing preview…</CenteredMessage>}
           </section>
-          <Sidebar renderPanel={renderPanel} />
+          <Sidebar activeTab={sidebarTab} onTabChange={setSidebarTab} renderPanel={renderPanel} />
         </div>
         <Timeline
           clock={clock}
           duration={project.duration}
           map={timeMap}
           speed={speed}
+          zoomClips={settings.zoom}
+          selectedZoomId={selectedZoomId}
           onTrimChange={(next) => update({ trim: next }, "trim")}
           onSpeedChange={changeSpeed}
+          onZoomChange={changeZoom}
+          onSelectZoom={selectZoom}
+          onAddZoom={addZoom}
         />
       </div>
       {shareDialog?.mode === "manage" && (

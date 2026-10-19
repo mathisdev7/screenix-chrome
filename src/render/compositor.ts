@@ -7,6 +7,8 @@ import { cursorStateAt } from "./cursor/cursorState";
 import type { CursorSprites } from "./cursor/theme";
 import type { CursorTimeline } from "./cursor/timeline";
 import { frameRectFor, referenceScale, roundedShapePath, videoRectFor, type Rect, type Size } from "./geometry";
+import type { ZoomView } from "./zoom/zoomCamera";
+import type { ZoomTimeline } from "./zoom/zoomTimeline";
 
 type Context2D = OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D;
 
@@ -18,8 +20,16 @@ export interface SceneInputs {
   settings: EditorSettings;
   source: Size;
   timeline: CursorTimeline;
+  zoom: ZoomTimeline;
   sprites: CursorSprites;
   wallpaper: ImageBitmap | null;
+}
+
+function applyZoom(ctx: Context2D, video: Rect, { scale, centerX, centerY }: ZoomView) {
+  if (scale <= 1) return;
+  ctx.translate(video.x + video.width / 2, video.y + video.height / 2);
+  ctx.scale(scale, scale);
+  ctx.translate(-(video.x + centerX * video.width), -(video.y + centerY * video.height));
 }
 
 export class Compositor {
@@ -40,8 +50,13 @@ export class Compositor {
     const radius = background.enabled ? background.cornerRadius * scale : 0;
     const shape = roundedShapePath(video, radius, background.squircle);
 
+    const zoom = this.inputs.zoom.at(time);
+    const zoomScene = background.enabled && !background.zoomInsideFrame;
+
     ctx.save();
     ctx.clearRect(0, 0, output.width, output.height);
+    ctx.save();
+    if (zoomScene) applyZoom(ctx, video, zoom);
     if (background.enabled) {
       ctx.drawImage(this.backgroundLayer.get(output, background, this.inputs.wallpaper), 0, 0);
       this.paintShadow(ctx, video, radius, scale);
@@ -52,6 +67,7 @@ export class Compositor {
     ctx.clip(shape);
     ctx.fillStyle = "#000";
     ctx.fillRect(video.x, video.y, video.width, video.height);
+    if (!zoomScene) applyZoom(ctx, video, zoom);
     const frameRect = frame ? frameRectFor(video, frame, background) : video;
     if (frame) ctx.drawImage(frame, frameRect.x, frameRect.y, frameRect.width, frameRect.height);
     ctx.restore();
@@ -60,10 +76,13 @@ export class Compositor {
     ctx.beginPath();
     ctx.rect(video.x, video.y, video.width, video.height);
     ctx.clip();
+    if (!zoomScene) applyZoom(ctx, video, zoom);
     const { cursor } = settings;
     drawClickEffects(ctx, this.inputs.timeline.clicks, time, cursor.clickEffect, cursor.clickEffectIntensity, frameRect);
     this.paintCursor(ctx, time, frameRect, frame?.width ?? source.width);
     ctx.restore();
+    ctx.restore();
+
     if (camera && settings.camera.enabled) paintCameraBubble(ctx, output, settings.camera, camera);
     ctx.restore();
   }
@@ -73,11 +92,12 @@ export class Compositor {
     if (blur <= 0) return;
     const spread = Math.max(4, Math.round(blur * 0.12)) * scale;
     const spreadRect = { x: video.x - spread, y: video.y - spread, width: video.width + spread * 2, height: video.height + spread * 2 };
+    const deviceScale = ctx.getTransform().a;
     ctx.save();
     ctx.shadowColor = SHADOW_COLOR;
-    ctx.shadowBlur = Math.max(34, Math.round(blur * 1.2)) * scale;
-    ctx.shadowOffsetX = SHADOW_OFFSCREEN_SHIFT;
-    ctx.shadowOffsetY = Math.max(18, Math.round(blur * 0.55)) * scale;
+    ctx.shadowBlur = Math.max(34, Math.round(blur * 1.2)) * scale * deviceScale;
+    ctx.shadowOffsetX = SHADOW_OFFSCREEN_SHIFT * deviceScale;
+    ctx.shadowOffsetY = Math.max(18, Math.round(blur * 0.55)) * scale * deviceScale;
     ctx.translate(-SHADOW_OFFSCREEN_SHIFT, 0);
     ctx.fillStyle = "#000";
     ctx.fill(roundedShapePath(spreadRect, radius + spread, this.inputs.settings.background.squircle));
@@ -91,7 +111,7 @@ export class Compositor {
     const outer = { x: video.x - width, y: video.y - width, width: video.width + width * 2, height: video.height + width * 2 };
     ctx.save();
     ctx.clip(roundedShapePath(outer, radius + width, squircle));
-    ctx.filter = `blur(${GLASS_BACKDROP_BLUR * scale}px) saturate(1.15)`;
+    ctx.filter = `blur(${GLASS_BACKDROP_BLUR * scale * ctx.getTransform().a}px) saturate(1.15)`;
     ctx.drawImage(this.backgroundLayer.get(output, this.inputs.settings.background, this.inputs.wallpaper), 0, 0);
     ctx.filter = "none";
     ctx.fillStyle = `rgba(255,255,255,${glassBorderOpacity})`;

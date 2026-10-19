@@ -1,4 +1,4 @@
-import { IconBolt, IconMinus, IconPlayerPauseFilled, IconPlayerPlayFilled, IconPlayerTrackNextFilled, IconPlayerTrackPrevFilled, IconPlus } from "@tabler/icons-react";
+import { IconBolt, IconMinus, IconPlayerPauseFilled, IconPlayerPlayFilled, IconPlayerTrackNextFilled, IconPlayerTrackPrevFilled, IconPlus, IconZoomIn } from "@tabler/icons-react";
 import type { ReactNode } from "react";
 import { formatClock } from "../../lib/format";
 
@@ -15,7 +15,20 @@ function ToolbarButton({ title, onClick, children }: { title: string; onClick: (
   );
 }
 
-export function TimelineToolbar({ time, duration, playing, zoom, onToggle, onStep, onZoom, onAddSpeed }: {
+function AddButton({ title, onClick, children }: { title: string; onClick: () => void; children: ReactNode }) {
+  return (
+    <button
+      type="button"
+      title={title}
+      onClick={onClick}
+      className="flex h-7 items-center gap-1.5 rounded-lg border px-2.5 text-[11px] font-medium text-foreground hover:bg-accent/60"
+    >
+      {children}
+    </button>
+  );
+}
+
+export function TimelineToolbar({ time, duration, playing, zoom, onToggle, onStep, onZoom, onAddSpeed, onAddZoom }: {
   time: number;
   duration: number;
   playing: boolean;
@@ -24,6 +37,7 @@ export function TimelineToolbar({ time, duration, playing, zoom, onToggle, onSte
   onStep: (direction: -1 | 1) => void;
   onZoom: (zoom: number) => void;
   onAddSpeed: () => void;
+  onAddZoom: () => void;
 }) {
   return (
     <div className="grid grid-cols-[1fr_auto_1fr] items-center">
@@ -31,15 +45,16 @@ export function TimelineToolbar({ time, duration, playing, zoom, onToggle, onSte
         <span className="text-[11px] font-medium tabular-nums text-muted-foreground">
           {formatClock(time)} <span className="opacity-50">/</span> {formatClock(duration)}
         </span>
-        <button
-          type="button"
-          title="Speed up or slow down part of the video, starting at the playhead"
-          onClick={onAddSpeed}
-          className="flex h-7 items-center gap-1.5 rounded-lg border px-2.5 text-[11px] font-medium text-foreground hover:bg-accent/60"
-        >
-          <IconBolt size={13} />
-          Add speed
-        </button>
+        <div className="flex gap-1.5">
+          <AddButton title="Zoom in on part of the video, starting at the playhead" onClick={onAddZoom}>
+            <IconZoomIn size={13} />
+            Add zoom
+          </AddButton>
+          <AddButton title="Speed up or slow down part of the video, starting at the playhead" onClick={onAddSpeed}>
+            <IconBolt size={13} />
+            Add speed
+          </AddButton>
+        </div>
       </div>
       <div className="flex">
         <ToolbarButton title="Previous frame" onClick={() => onStep(-1)}>

@@ -1,19 +1,23 @@
-import { IconAspectRatio, IconChevronsLeft, IconChevronsRight, IconMusic, IconPhoto, IconPointer, IconVideo, type Icon } from "@tabler/icons-react";
+import { IconAspectRatio, IconChevronsLeft, IconChevronsRight, IconMusic, IconPhoto, IconPointer, IconVideo, IconZoomIn, type Icon } from "@tabler/icons-react";
 import clsx from "clsx";
 import { useState, type ReactNode } from "react";
 
-export type SidebarTab = "cursor" | "camera" | "ratio" | "audio" | "background";
+export type SidebarTab = "cursor" | "zoom" | "camera" | "ratio" | "audio" | "background";
 
 const TABS: readonly { id: SidebarTab; label: string; icon: Icon }[] = [
   { id: "cursor", label: "Cursor", icon: IconPointer },
+  { id: "zoom", label: "Zoom", icon: IconZoomIn },
   { id: "camera", label: "Camera", icon: IconVideo },
   { id: "ratio", label: "Ratio", icon: IconAspectRatio },
   { id: "audio", label: "Audio", icon: IconMusic },
   { id: "background", label: "Background", icon: IconPhoto },
 ];
 
-export function Sidebar({ renderPanel }: { renderPanel: (tab: SidebarTab) => ReactNode }) {
-  const [activeTab, setActiveTab] = useState<SidebarTab>("cursor");
+export function Sidebar({ activeTab, onTabChange, renderPanel }: {
+  activeTab: SidebarTab;
+  onTabChange: (tab: SidebarTab) => void;
+  renderPanel: (tab: SidebarTab) => ReactNode;
+}) {
   const [collapsed, setCollapsed] = useState(false);
   const active = TABS.find((tab) => tab.id === activeTab) ?? TABS[0];
 
@@ -58,7 +62,7 @@ export function Sidebar({ renderPanel }: { renderPanel: (tab: SidebarTab) => Rea
                 "gold-button col-span-2 grid size-8 place-items-center rounded-md",
                 id !== activeTab && "opacity-80",
               )}
-              onClick={() => setActiveTab(id)}
+              onClick={() => onTabChange(id)}
             >
               <TabIcon size={19} stroke={1.8} />
             </button>
