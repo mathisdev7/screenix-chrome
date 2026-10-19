@@ -11,7 +11,7 @@ export function createManifest(): chrome.runtime.ManifestV3 {
     name: "Screenix for Chrome",
     short_name: "Screenix",
     version: "0.1.0",
-    description: "Record browser tabs and get a smooth, re-rendered cursor with Screenix-style effects.",
+    description: "Screen record Chrome tabs with a buttery-smooth cursor, webcam and mic. Edit, export in 4K, or share a link.",
     minimum_chrome_version: "118",
     icons: {
       16: "icons/icon-16.png",
