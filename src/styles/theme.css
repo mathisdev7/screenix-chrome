@@ -1,0 +1,110 @@
+@import "tailwindcss";
+@import "@fontsource-variable/inter";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme inline {
+  --font-sans: "Inter Variable", Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-ring: var(--ring);
+  --color-surface-0: var(--surface-0);
+  --color-surface-1: var(--surface-1);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+}
+
+:root,
+.dark {
+  --radius: 0.75rem;
+  --background: #101010;
+  --foreground: #f4f4f5;
+  --primary: #f4f4f5;
+  --primary-foreground: #18181b;
+  --muted: #19191b;
+  --muted-foreground: #a1a1aa;
+  --accent: #302b21;
+  --destructive: #dd7d7d;
+  --border: #343437;
+  --ring: #c8b995;
+  --surface-0: #101010;
+  --surface-1: #19191b;
+  --surface-2: #252527;
+  --surface-3: #343437;
+  --editor-workspace-background: var(--surface-1);
+  --editor-preview-ring: #252527;
+  --editor-floating-controls-background: rgba(28, 28, 30, 0.9);
+  --editor-floating-control-background: rgba(255, 255, 255, 0.06);
+  --editor-floating-control-hover: rgba(255, 255, 255, 0.1);
+  --editor-timeline-label: rgba(255, 255, 255, 0.38);
+  --editor-timeline-ruler: rgba(255, 255, 255, 0.34);
+  color-scheme: dark;
+}
+
+.light {
+  --background: #fbfaf6;
+  --foreground: #1c1a15;
+  --primary: #1c1a15;
+  --primary-foreground: #fbfaf6;
+  --muted: #f4f2ec;
+  --muted-foreground: #56524a;
+  --accent: #e9e3d6;
+  --destructive: #a54b4b;
+  --border: #e7e3d9;
+  --ring: #746b58;
+  --surface-0: #fbfaf6;
+  --surface-1: #f4f2ec;
+  --surface-2: #ece9e0;
+  --surface-3: #e7e3d9;
+  --editor-workspace-background: #f4f2ec;
+  --editor-preview-ring: #ece9e0;
+  --editor-floating-controls-background: rgba(255, 255, 255, 0.9);
+  --editor-floating-control-background: rgba(28, 26, 21, 0.06);
+  --editor-floating-control-hover: rgba(28, 26, 21, 0.1);
+  --editor-timeline-label: rgba(26, 26, 26, 0.46);
+  --editor-timeline-ruler: rgba(26, 26, 26, 0.34);
+  color-scheme: light;
+}
+
+.dark .screenix-editor {
+  --background: var(--surface-1);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: var(--font-sans);
+    font-weight: 500;
+  }
+
+  button,
+  input,
+  select {
+    font: inherit;
+  }
+
+  button:not(:disabled) {
+    cursor: pointer;
+  }
+}
