@@ -1,3 +1,5 @@
+import { cursorAssetUrl } from "@/render/cursor/theme";
+import { CURSOR_THEMES } from "@/shared/cursorThemes";
 import { DEFAULT_CURSOR_SETTINGS, type CursorSettings, type SettingsPatch } from "@/shared/settings";
 import { ChoiceButton, Section, SliderRow, SwitchRow } from "../controls";
 import { CLICK_EFFECT_OPTIONS } from "./clickEffectIcons";
@@ -42,6 +44,22 @@ export function CursorPanel({ cursor, onChange }: {
 
   return (
     <div className="space-y-5">
+      <Section title="Theme">
+        <div className="grid grid-cols-2 gap-1.5">
+          {CURSOR_THEMES.map(({ id, label }) => (
+            <ChoiceButton
+              key={id}
+              active={cursor.theme === id}
+              className="flex h-10 items-center gap-2 px-2.5 text-[11px]"
+              onClick={() => onChange({ cursor: { theme: id } })}
+            >
+              <img src={cursorAssetUrl(id, "default")} alt="" className="size-5 shrink-0 object-contain" />
+              <span className="truncate">{label}</span>
+            </ChoiceButton>
+          ))}
+        </div>
+      </Section>
+
       <Section title="Appearance" onReset={() => onChange({ cursor: appearanceDefaults })} resetDisabled={isDefault(appearanceDefaults)}>
         <SliderRow label="Size" value={cursor.size} min={1} max={8} step={0.1} onChange={set("size")} format={(value) => `${value.toFixed(1)}%`} />
         <SliderRow label="Shadow" value={cursor.shadow} min={0} max={1} step={0.1} onChange={set("shadow")} format={intensityLabel} />

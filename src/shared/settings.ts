@@ -1,3 +1,5 @@
+import { DEFAULT_CURSOR_THEME, normalizeCursorTheme, type CursorThemeId } from "./cursorThemes";
+
 export type ClickEffectStyle = "none" | "ripple" | "highlight" | "halo" | "burst";
 
 export type BackgroundKind = "image" | "color" | "gradient";
@@ -5,6 +7,7 @@ export type BackgroundKind = "image" | "color" | "gradient";
 export type AspectRatioId = "source" | "16:9" | "9:16" | "1:1" | "4:5" | "4:3";
 
 export interface CursorSettings {
+  theme: CursorThemeId;
   size: number;
   shadow: number;
   speed: number;
@@ -87,6 +90,7 @@ export interface EditorSettings {
 }
 
 export const DEFAULT_CURSOR_SETTINGS: CursorSettings = {
+  theme: DEFAULT_CURSOR_THEME,
   size: 6.5,
   shadow: 0.6,
   speed: 0.5,
@@ -147,7 +151,7 @@ export function createDefaultSettings(): EditorSettings {
 export function withDefaults(settings: Partial<EditorSettings> | null | undefined): EditorSettings {
   const defaults = createDefaultSettings();
   return {
-    cursor: { ...defaults.cursor, ...settings?.cursor },
+    cursor: { ...defaults.cursor, ...settings?.cursor, theme: normalizeCursorTheme(settings?.cursor?.theme) },
     background: { ...defaults.background, ...settings?.background },
     camera: { ...defaults.camera, ...settings?.camera },
     audio: { ...defaults.audio, ...settings?.audio },

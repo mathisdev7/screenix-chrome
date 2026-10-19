@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 32 32">
+  <defs><linearGradient id="mochi" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#e4d5ff"/><stop offset="1" stop-color="#ae8beb"/></linearGradient></defs>
+  <g stroke-linecap="round" stroke-linejoin="round"><g transform="rotate(225 16 16)"><path d="M5 13H19V8Q19 6.5 20.3 7.7L28 15Q29 16 28 17L20.3 24.3Q19 25.5 19 24V19H5Q4 19 4 18V14Q4 13 5 13Z" fill="url(#mochi)" stroke="#faf5ff" stroke-width="3.4"/><path d="M5 13H19V8Q19 6.5 20.3 7.7L28 15Q29 16 28 17L20.3 24.3Q19 25.5 19 24V19H5Q4 19 4 18V14Q4 13 5 13Z" fill="url(#mochi)" stroke="#493365" stroke-width="1.4"/></g></g>
+</svg>

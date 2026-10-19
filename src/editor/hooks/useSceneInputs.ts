@@ -5,19 +5,20 @@ import { buildCursorTimeline } from "@/render/cursor/timeline";
 import type { ProjectMedia } from "@/render/projectMedia";
 import { loadWallpaper } from "@/render/wallpapers";
 import { ZoomTimeline } from "@/render/zoom/zoomTimeline";
+import type { CursorThemeId } from "@/shared/cursorThemes";
 import type { EditorSettings } from "@/shared/settings";
 
-function useCursorSprites(): CursorSprites | null {
+function useCursorSprites(theme: CursorThemeId): CursorSprites | null {
   const [sprites, setSprites] = useState<CursorSprites | null>(null);
   useEffect(() => {
     let active = true;
-    void loadCursorSprites().then((loaded) => {
+    void loadCursorSprites(theme).then((loaded) => {
       if (active) setSprites(loaded);
     });
     return () => {
       active = false;
     };
-  }, []);
+  }, [theme]);
   return sprites;
 }
 
@@ -44,7 +45,7 @@ function useWallpaperImage(media: ProjectMedia, settings: EditorSettings) {
 }
 
 export function useSceneInputs(media: ProjectMedia, settings: EditorSettings) {
-  const sprites = useCursorSprites();
+  const sprites = useCursorSprites(settings.cursor.theme);
   const wallpaper = useWallpaperImage(media, settings);
   const timeline = useMemo(
     () => buildCursorTimeline(media.pointer, settings.cursor.speed),

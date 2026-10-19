@@ -31,7 +31,7 @@ Two Vite builds:
 | `src/background/screencaster.ts` | `chrome.debugger` + CDP `Page.startScreencast` (JPEG). Validates frame timestamps against the wall clock. |
 | `src/content/` | Pointer tracker: normalized position, buttons, leave events, CSS cursor shape. Sends batches over a `chrome.runtime` port. |
 | `src/shared/` | Types, settings and defaults (`settings.ts`), IndexedDB layer (`db.ts`), messages, cursor shape list. |
-| `src/render/cursor/` | Port of the Screenix editor cursor pipeline: `spring.ts`, `timeline.ts` (120 Hz spring timeline, segments), `cursorState.ts` (click bump, drag squeeze, shape transition, sway, idle fade), `clickEffects.ts`, `cursorPainter.ts`, `theme.ts` (macOS Tahoe sprites and hotspots). |
+| `src/render/cursor/` | Port of the Screenix editor cursor pipeline: `spring.ts`, `timeline.ts` (120 Hz spring timeline, segments), `cursorState.ts` (click bump, drag squeeze, shape transition, sway, idle fade), `clickEffects.ts`, `cursorPainter.ts`, `theme.ts` (sprite loading per theme; hotspots in `themeHotspots.json`). |
 | `src/render/compositor.ts` | Draws one output frame: background, shadow, glass border, rounded or squircle video, click effects, cursor. Preview and export both use it. |
 | `src/render/geometry.ts` | Aspect ratios, video and frame placement, squircle path, encoder-aligned export sizes. |
 | `src/render/frameSequence.ts` | Frame lookup by time plus an LRU `ImageBitmap` cache with pinning. |
@@ -57,6 +57,7 @@ Two Vite builds:
 - **Debugger bar resize.** The first frames are taller than later ones because the debugger bar appears after attach. With a background on, frames within 15% of the video aspect cover the video, top-anchored, instead of letterboxing.
 - **Cursor motion blur is canvas 2D.** It accumulates 2–21 offset copies with `lighter` compositing, the same math as the Screenix WebGL shader. The WebGL version produced dark boxes in exports on the user's GPU.
 - **Export encoding.** Constant quality (`bitrateMode: "quantizer"`) when supported. MP4 · AV1 at q24 is the default. Chrome's software H.264 (OpenH264) has no quantizer mode and undershoots its bitrate badly on dark pages, leaving blocky trails, so the dialog warns about it. Export width is aligned to 16 and height to 8.
+- **Cursor themes** come from the Screenix desktop app (`ui/public/cursors/themes`, hotspots from `ui/src/lib/wayland-cursor-shapes.json`): macOS Tahoe (`public/cursors/*.svg`), macOS Dark, Mochi, AOSP, Mocu, Kenney and Mint (`public/cursors/themes/<id>/`, each with its NOTICE/LICENSE). The list is `src/shared/cursorThemes.ts`; `cursor.theme` is on the project settings and unknown values fall back to macOS Tahoe. macOS Dark uses the desktop's 128 px PNGs for the four base shapes.
 - **Wallpapers** are fetched from the Screenix CDN (`cdn.usearctic.sh`). Host permissions bypass CORS inside the extension. Plain localhost test pages fall back to the solid color.
 
 ## Microphone, camera and tab audio
@@ -129,4 +130,4 @@ Open:
 - Chrome Web Store listing and review (debugger permission justification).
 - Initial git commit; nothing is committed yet.
 - Chrome Web Store link on the success page when the extension isn't installed.
-- The macOS Tahoe cursor artwork is GPL-3.0; replace it with owned art before selling the closed extension.
+- The macOS Tahoe and macOS Dark cursor artwork is GPL-3.0; replace it with owned art before selling the closed extension.

@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="256" height="256" version="1.1" viewBox="-1 -1 26 26">
+	<defs>
+		<path id="c" d="m1 1v13.75l3.94-1.63 1.72 4.16 1.84-0.78-1.71-4.15 3.94-1.63z" />
+		<path id="s" d="m14 8.875a6.125 6.125 0 0 0-6.125 6.125 6.125 6.125 0 0 0 6.125 6.125 6.125 6.125 0 0 0 6.125-6.125 6.125 6.125 0 0 0-6.125-6.125zm0 1.875a4.25 4.25 0 0 1 3.59 6.52l-5.86-5.86a4.25 4.25 0 0 1 2.27-0.66zm-3.59 1.98 5.86 5.86a4.25 4.25 0 0 1-2.27 0.66 4.25 4.25 0 0 1-3.59-6.52z" />
+	</defs>
+	<use xlink:href="#c" style="fill:#f9f9f9;stroke:#f9f9f9;stroke-width:2;stroke-linejoin:round" />
+	<use xlink:href="#c" style="fill:#111111" />
+	<use xlink:href="#s" style="fill:#f9f9f9;stroke:#f9f9f9;stroke-width:1.75;stroke-linejoin:round" />
+	<use xlink:href="#s" style="fill:#111111" />
+	</svg>

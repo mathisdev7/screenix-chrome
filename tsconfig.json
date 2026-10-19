@@ -4,6 +4,7 @@
     "lib": ["ES2023", "DOM", "DOM.Iterable", "WebWorker.ImportScripts"],
     "module": "ESNext",
     "moduleResolution": "bundler",
+    "resolveJsonModule": true,
     "jsx": "react-jsx",
     "types": ["chrome", "bun", "vite/client"],
     "strict": true,

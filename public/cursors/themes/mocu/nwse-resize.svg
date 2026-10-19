@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="256" height="256" version="1.1" viewBox="-1 -1 26 26">
+	<defs>
+		<path id="c" d="m5 5v8l3-3 5 5-3 3h8v-8l-3 3-5-5 3-3z" />
+	</defs>
+	<use xlink:href="#c" style="fill:#f9f9f9;stroke:#f9f9f9;stroke-width:2;stroke-linejoin:round" />
+	<use xlink:href="#c" style="fill:#111111" />
+	</svg>
