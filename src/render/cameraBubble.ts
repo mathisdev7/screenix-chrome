@@ -8,15 +8,31 @@ const SHADOW_ALPHA = 0.35;
 const SHADOW_BLUR_RATIO = 0.12;
 const SHADOW_OFFSET_RATIO = 0.04;
 
-export function cameraBubbleRect(output: Size, settings: CameraSettings): Rect {
+interface BubbleArea {
+  size: number;
+  margin: number;
+  travelX: number;
+  travelY: number;
+}
+
+function bubbleArea(output: Size, settings: CameraSettings): BubbleArea {
   const unit = Math.min(output.width, output.height);
   const size = settings.size * unit;
   const margin = MARGIN_RATIO * unit;
+  return { size, margin, travelX: Math.max(0, output.width - margin * 2 - size), travelY: Math.max(0, output.height - margin * 2 - size) };
+}
+
+export function cameraBubbleRect(output: Size, settings: CameraSettings): Rect {
+  const { size, margin, travelX, travelY } = bubbleArea(output, settings);
+  return { x: margin + settings.x * travelX, y: margin + settings.y * travelY, width: size, height: size };
+}
+
+export function cameraPositionAt(output: Size, settings: CameraSettings, left: number, top: number): { x: number; y: number } {
+  const { margin, travelX, travelY } = bubbleArea(output, settings);
+  const clamp = (value: number) => Math.min(1, Math.max(0, value));
   return {
-    x: settings.position.endsWith("left") ? margin : output.width - margin - size,
-    y: settings.position.startsWith("top") ? margin : output.height - margin - size,
-    width: size,
-    height: size,
+    x: travelX > 0 ? clamp((left - margin) / travelX) : 0.5,
+    y: travelY > 0 ? clamp((top - margin) / travelY) : 0.5,
   };
 }
 

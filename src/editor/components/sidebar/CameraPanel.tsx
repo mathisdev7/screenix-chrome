@@ -1,11 +1,11 @@
-import { DEFAULT_CAMERA_SETTINGS, type CameraPosition, type CameraSettings, type SettingsPatch } from "@/shared/settings";
+import { DEFAULT_CAMERA_SETTINGS, type CameraSettings, type SettingsPatch } from "@/shared/settings";
 import { ChoiceButton, Section, SliderRow, SwitchRow } from "../controls";
 
-const POSITIONS: readonly { value: CameraPosition; label: string }[] = [
-  { value: "top-left", label: "Top left" },
-  { value: "top-right", label: "Top right" },
-  { value: "bottom-left", label: "Bottom left" },
-  { value: "bottom-right", label: "Bottom right" },
+const CORNERS: readonly { x: number; y: number; label: string }[] = [
+  { x: 0, y: 0, label: "Top left" },
+  { x: 1, y: 0, label: "Top right" },
+  { x: 0, y: 1, label: "Bottom left" },
+  { x: 1, y: 1, label: "Bottom right" },
 ];
 
 const STYLE_KEYS = ["size", "roundness", "squircle", "shadow", "mirror"] as const;
@@ -38,17 +38,18 @@ export function CameraPanel({ hasCamera, camera, onChange }: {
         <>
           <Section title="Position">
             <div className="grid grid-cols-2 gap-1.5">
-              {POSITIONS.map((position) => (
+              {CORNERS.map((corner) => (
                 <ChoiceButton
-                  key={position.value}
-                  active={camera.position === position.value}
+                  key={corner.label}
+                  active={camera.x === corner.x && camera.y === corner.y}
                   className="h-9 text-[11px]"
-                  onClick={() => onChange({ camera: { position: position.value } })}
+                  onClick={() => onChange({ camera: { x: corner.x, y: corner.y } })}
                 >
-                  {position.label}
+                  {corner.label}
                 </ChoiceButton>
               ))}
             </div>
+            <p className="text-[11px] leading-snug text-muted-foreground">Or drag the camera in the preview to place it anywhere.</p>
           </Section>
 
           <Section title="Style" onReset={() => onChange({ camera: styleDefaults })} resetDisabled={styleIsDefault}>

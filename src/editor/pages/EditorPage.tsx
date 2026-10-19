@@ -87,7 +87,7 @@ function Editor({ media, onHome }: { media: ProjectMedia; onHome: () => void }) 
       <div className="grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)_auto] bg-[var(--editor-workspace-background)]">
         <div className="flex min-h-0">
           <section className="order-1 flex min-w-0 flex-1 flex-col px-3 pb-2 pt-3">
-            {inputs ? <PreviewPane media={media} inputs={inputs} clock={clock} /> : <CenteredMessage>Preparing preview…</CenteredMessage>}
+            {inputs ? <PreviewPane media={media} inputs={inputs} clock={clock} onChange={update} /> : <CenteredMessage>Preparing preview…</CenteredMessage>}
           </section>
           <Sidebar renderPanel={renderPanel} />
         </div>

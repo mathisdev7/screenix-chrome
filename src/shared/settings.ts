@@ -32,11 +32,10 @@ export interface BackgroundSettings {
   glassBorderOpacity: number;
 }
 
-export type CameraPosition = "top-left" | "top-right" | "bottom-left" | "bottom-right";
-
 export interface CameraSettings {
   enabled: boolean;
-  position: CameraPosition;
+  x: number;
+  y: number;
   size: number;
   roundness: number;
   squircle: boolean;
@@ -93,9 +92,10 @@ export const DEFAULT_BACKGROUND_SETTINGS: BackgroundSettings = {
 
 export const DEFAULT_CAMERA_SETTINGS: CameraSettings = {
   enabled: true,
-  position: "bottom-right",
-  size: 0.22,
-  roundness: 0.5,
+  x: 1,
+  y: 1,
+  size: 0.24,
+  roundness: 0.45,
   squircle: true,
   shadow: 1,
   mirror: true,
