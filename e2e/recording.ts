@@ -9,6 +9,7 @@ const SITE = join(import.meta.dir, "site");
 const CHROME = process.env.CHROME_PATH ?? "google-chrome";
 const MAX_SCREEN_GAP_SECONDS = 0.25;
 const MAX_CAMERA_GAP_SECONDS = 0.15;
+const MAX_AUDIO_COVERAGE_ERROR_SECONDS = 0.3;
 
 const sleep = (ms: number) => new Promise((resolveSleep) => setTimeout(resolveSleep, ms));
 
@@ -16,7 +17,7 @@ interface RecordingReport {
   duration: number;
   screenFrames: number[];
   cameraFrames: number[];
-  audioTracks: { kind: string; frameCount: number; sampleRate: number }[];
+  audioTracks: { kind: string; startT: number; frameCount: number; sampleRate: number }[];
 }
 
 class DevTools {
@@ -145,15 +146,19 @@ async function run(): Promise<RecordingReport> {
 const report = await run();
 const screenGap = largestGap(report.screenFrames);
 const cameraGap = largestGap(report.cameraFrames);
+const microphone = report.audioTracks.find((track) => track.kind === "microphone");
+const audioSeconds = microphone ? microphone.frameCount / microphone.sampleRate : 0;
+const audioError = microphone ? Math.abs(report.duration - microphone.startT - audioSeconds) : Infinity;
 const failures = [
   report.screenFrames.length === 0 && "no screen frames were recorded",
   screenGap > MAX_SCREEN_GAP_SECONDS && `screen froze for ${screenGap.toFixed(2)}s`,
   report.cameraFrames.length === 0 && "no camera frames were recorded",
   cameraGap > MAX_CAMERA_GAP_SECONDS && `camera froze for ${cameraGap.toFixed(2)}s`,
-  !report.audioTracks.some((track) => track.kind === "microphone" && track.frameCount > 0) && "no microphone audio was recorded",
+  !microphone && "no microphone audio was recorded",
+  microphone && audioError > MAX_AUDIO_COVERAGE_ERROR_SECONDS && `microphone audio is ${audioError.toFixed(2)}s off the recording length`,
 ].filter(Boolean);
 
-console.log(`Recorded ${report.duration.toFixed(2)}s: ${report.screenFrames.length} screen frames (largest gap ${screenGap.toFixed(2)}s), ${report.cameraFrames.length} camera frames (largest gap ${cameraGap.toFixed(2)}s)`);
+console.log(`Recorded ${report.duration.toFixed(2)}s: ${report.screenFrames.length} screen frames (largest gap ${screenGap.toFixed(2)}s), ${report.cameraFrames.length} camera frames (largest gap ${cameraGap.toFixed(2)}s), ${audioSeconds.toFixed(2)}s of microphone audio`);
 if (failures.length > 0) {
   console.error(`FAIL: ${failures.join("; ")}`);
   process.exit(1);

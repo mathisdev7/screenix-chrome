@@ -17,7 +17,7 @@ function deviceConstraint(deviceId: string): ConstrainDOMString | undefined {
 
 async function openMicrophone(deviceId: string): Promise<MediaStreamTrack> {
   const stream = await navigator.mediaDevices.getUserMedia({
-    audio: { deviceId: deviceConstraint(deviceId), echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+    audio: { deviceId: deviceConstraint(deviceId), echoCancellation: false, noiseSuppression: false, autoGainControl: false },
   });
   return stream.getAudioTracks()[0];
 }

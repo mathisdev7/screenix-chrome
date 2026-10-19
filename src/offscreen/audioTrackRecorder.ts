@@ -2,6 +2,7 @@ import { addAudioChunk } from "@/shared/db";
 import type { AudioTrackInfo, AudioTrackKind, ProjectId } from "@/shared/types";
 
 const CHUNK_SECONDS = 1;
+const MAX_GAP_SECONDS = 10;
 const INT16_MAX = 0x7fff;
 
 const epochNow = () => performance.timeOrigin + performance.now();
@@ -19,6 +20,7 @@ export class AudioTrackRecorder {
   private frameCount = 0;
   private sampleRate = 48_000;
   private startEpoch: number | null = null;
+  private nextTimestampUs: number | null = null;
   private finished: Promise<void>;
 
   constructor(
@@ -62,26 +64,41 @@ export class AudioTrackRecorder {
       this.startEpoch = epochNow() - (data.numberOfFrames / data.sampleRate) * 1000;
       this.sampleRate = data.sampleRate;
     }
-    const chunkSize = this.sampleRate * this.channels * CHUNK_SECONDS;
+    if (this.nextTimestampUs !== null) {
+      const missingFrames = Math.round(((data.timestamp - this.nextTimestampUs) / 1_000_000) * this.sampleRate);
+      if (missingFrames > data.numberOfFrames / 2) this.pushSilence(Math.min(missingFrames, this.sampleRate * MAX_GAP_SECONDS));
+    }
+    this.nextTimestampUs = data.timestamp + (data.numberOfFrames / data.sampleRate) * 1_000_000;
+
     const planes = Array.from({ length: data.numberOfChannels }, (_, planeIndex) => {
       const plane = new Float32Array(data.numberOfFrames);
       data.copyTo(plane, { planeIndex, format: "f32-planar" });
       return plane;
     });
     for (let frame = 0; frame < data.numberOfFrames; frame++) {
-      this.chunk ??= new Int16Array(chunkSize);
       if (this.channels === 1) {
         let sum = 0;
         for (const plane of planes) sum += plane[frame];
-        this.chunk[this.chunkLength++] = toInt16(sum / planes.length);
+        this.pushSample(toInt16(sum / planes.length));
       } else {
         for (let channel = 0; channel < this.channels; channel++) {
-          this.chunk[this.chunkLength++] = toInt16(planes[Math.min(channel, planes.length - 1)][frame]);
+          this.pushSample(toInt16(planes[Math.min(channel, planes.length - 1)][frame]));
         }
       }
-      if (this.chunkLength >= chunkSize) this.flush();
     }
     this.frameCount += data.numberOfFrames;
+  }
+
+  private pushSilence(frames: number) {
+    for (let index = 0; index < frames * this.channels; index++) this.pushSample(0);
+    this.frameCount += frames;
+  }
+
+  private pushSample(value: number) {
+    const chunkSize = this.sampleRate * this.channels * CHUNK_SECONDS;
+    this.chunk ??= new Int16Array(chunkSize);
+    this.chunk[this.chunkLength++] = value;
+    if (this.chunkLength >= chunkSize) this.flush();
   }
 
   private flush() {
