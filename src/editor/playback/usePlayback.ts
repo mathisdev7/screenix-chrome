@@ -1,15 +1,16 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
 import type { LoadedAudioTrack } from "@/render/audioTracks";
+import type { TimeMap } from "@/render/timeMap";
 import type { AudioSettings } from "@/shared/settings";
 import { AudioPlayer } from "./AudioPlayer";
 import { PlaybackClock, type PlaybackSnapshot } from "./PlaybackClock";
 
-export function usePlaybackClock(start: number, end: number): PlaybackClock {
+export function usePlaybackClock(map: TimeMap): PlaybackClock {
   const [clock] = useState(() => new PlaybackClock());
 
   useEffect(() => {
-    clock.setRange(start, end);
-  }, [clock, start, end]);
+    clock.setTimeMap(map);
+  }, [clock, map]);
 
   useEffect(() => () => clock.pause(), [clock]);
 
@@ -24,7 +25,10 @@ export function useAudioPlayback(clock: PlaybackClock, tracks: readonly LoadedAu
   const [player] = useState(() => new AudioPlayer(tracks, settings));
 
   useEffect(() => {
-    const sync = () => player.sync(clock.getSnapshot());
+    const sync = () => {
+      const snapshot = clock.getSnapshot();
+      player.sync(snapshot, clock.map.rateAt(snapshot.time));
+    };
     const unsubscribe = clock.subscribe(sync);
     return () => {
       unsubscribe();

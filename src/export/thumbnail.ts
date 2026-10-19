@@ -1,7 +1,7 @@
 import { Compositor, type SceneInputs } from "@/render/compositor";
 import { aspectValue, encoderSizeForShortSide } from "@/render/geometry";
 import type { ProjectMedia } from "@/render/projectMedia";
-import { trimmedRange } from "./exportVideo";
+import { trimmedRange } from "@/render/timeMap";
 
 const THUMBNAIL_SHORT_SIDE = 720;
 const THUMBNAIL_QUALITY = 0.82;

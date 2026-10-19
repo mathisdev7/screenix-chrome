@@ -1,5 +1,5 @@
-import { useCallback, useState } from "react";
-import { trimmedRange } from "@/export/exportVideo";
+import { useCallback, useMemo, useState } from "react";
+import { TimeMap } from "@/render/timeMap";
 import type { ProjectMedia } from "@/render/projectMedia";
 import { CUSTOM_WALLPAPER, CUSTOM_WALLPAPER_ASSET_KEY } from "@/render/wallpapers";
 import { putAsset } from "@/shared/db";
@@ -18,6 +18,7 @@ import { Timeline } from "../components/timeline/Timeline";
 import { TopBar } from "../components/TopBar";
 import { useEditorSettings } from "../hooks/useEditorSettings";
 import { useEditorShortcuts } from "../hooks/useEditorShortcuts";
+import { useCameraImport } from "../hooks/useCameraImport";
 import { openLicenseDialog, openLicensePricing, useLicense } from "../hooks/useLicense";
 import { useProjectMedia } from "../hooks/useProjectMedia";
 import { useSceneInputs } from "../hooks/useSceneInputs";
@@ -42,12 +43,15 @@ function Editor({ media, onHome }: { media: ProjectMedia; onHome: () => void }) 
   const { theme, toggleTheme } = useTheme();
   const { license, loading: licenseLoading } = useLicense();
   const licensed = licenseLoading || license !== null;
-  const trim = trimmedRange(settings, project.duration);
-  const clock = usePlaybackClock(trim.start, trim.end);
+  const { trim, speed } = settings;
+  const timeMap = useMemo(() => TimeMap.from(trim, speed, project.duration), [trim, speed, project.duration]);
+  const clock = usePlaybackClock(timeMap);
+  const changeSpeed = useCallback((next: typeof speed, coalesceKey?: string) => update({ speed: next }, coalesceKey), [update]);
   useAudioPlayback(clock, media.audio, settings.audio);
   const [exportOpen, setExportOpen] = useState(false);
   const [shareDialog, setShareDialog] = useState<{ mode: "share" } | { mode: "manage"; share: ProjectShare } | null>(null);
   useEditorShortcuts(clock, undo, redo);
+  const cameraImport = useCameraImport(project, settings);
   const setShare = useCallback((share: ProjectShare | null) => setProject((current) => ({ ...current, share })), []);
 
   const uploadWallpaper = useCallback(async (file: File) => {
@@ -61,7 +65,15 @@ function Editor({ media, onHome }: { media: ProjectMedia; onHome: () => void }) 
       case "cursor":
         return <CursorPanel cursor={settings.cursor} onChange={update} />;
       case "camera":
-        return <CameraPanel hasCamera={media.camera !== null} camera={settings.camera} onChange={update} />;
+        return (
+          <CameraPanel
+            hasCamera={media.camera !== null}
+            camera={settings.camera}
+            importState={cameraImport.state}
+            onImportVideo={(file) => void cameraImport.importVideo(file)}
+            onChange={update}
+          />
+        );
       case "audio":
         return <AudioPanel tracks={media.audio} audio={settings.audio} onChange={update} />;
       case "ratio":
@@ -100,8 +112,10 @@ function Editor({ media, onHome }: { media: ProjectMedia; onHome: () => void }) 
         <Timeline
           clock={clock}
           duration={project.duration}
-          trim={trim}
+          map={timeMap}
+          speed={speed}
           onTrimChange={(next) => update({ trim: next }, "trim")}
+          onSpeedChange={changeSpeed}
         />
       </div>
       {shareDialog?.mode === "manage" && (

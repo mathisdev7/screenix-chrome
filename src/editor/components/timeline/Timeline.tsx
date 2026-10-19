@@ -1,11 +1,15 @@
 import { IconVideo } from "@tabler/icons-react";
 import clsx from "clsx";
-import { useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
-import type { TrimRange } from "@/shared/settings";
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import type { TimeMap } from "@/render/timeMap";
+import type { SpeedClip, TrimRange } from "@/shared/settings";
 import { useElementSize } from "../../hooks/useElementSize";
 import { formatDuration } from "../../lib/format";
 import type { PlaybackClock } from "../../playback/PlaybackClock";
 import { usePlaybackSnapshot } from "../../playback/usePlayback";
+import { addSpeedClip, removeSpeedClip, setSpeedRate, speedClipAt } from "../../lib/speedClips";
+import { SpeedControls } from "./SpeedControls";
+import { SpeedLane } from "./SpeedLane";
 import { TimelineToolbar } from "./TimelineToolbar";
 import { formatTick, tickStep, tickTimes } from "./timelineScale";
 
@@ -28,13 +32,47 @@ function TrimHandle({ side, onPointerDown }: { side: "start" | "end"; onPointerD
   );
 }
 
-export function Timeline({ clock, duration, trim, onTrimChange }: {
+function isTyping(target: EventTarget | null): boolean {
+  return target instanceof HTMLElement && (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName));
+}
+
+export function Timeline({ clock, duration, map, speed, onTrimChange, onSpeedChange }: {
   clock: PlaybackClock;
   duration: number;
-  trim: { start: number; end: number };
+  map: TimeMap;
+  speed: readonly SpeedClip[];
   onTrimChange: (trim: Partial<TrimRange>) => void;
+  onSpeedChange: (speed: SpeedClip[], coalesceKey?: string) => void;
 }) {
   const { time, playing } = usePlaybackSnapshot(clock);
+  const trim = { start: map.sourceStart, end: map.sourceEnd };
+  const [selectedSpeedId, setSelectedSpeedId] = useState<string | null>(null);
+  const selectedSpeed = speed.find((clip) => clip.id === selectedSpeedId) ?? null;
+
+  useEffect(() => {
+    if (!selectedSpeedId) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (isTyping(event.target) || (event.key !== "Delete" && event.key !== "Backspace")) return;
+      event.preventDefault();
+      onSpeedChange(removeSpeedClip(speed, selectedSpeedId));
+      setSelectedSpeedId(null);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [selectedSpeedId, speed, onSpeedChange]);
+
+  const addSpeed = () => {
+    const existing = speedClipAt(speed, time);
+    if (existing) {
+      setSelectedSpeedId(existing.id);
+      return;
+    }
+    const id = crypto.randomUUID();
+    const next = addSpeedClip(speed, time, trim, id);
+    if (!next) return;
+    onSpeedChange(next);
+    setSelectedSpeedId(id);
+  };
   const [zoom, setZoom] = useState(1);
   const viewportRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -81,10 +119,11 @@ export function Timeline({ clock, duration, trim, onTrimChange }: {
   return (
     <div className="flex flex-col gap-2.5 border-t bg-[var(--editor-workspace-background)] px-4 pb-4 pt-2.5">
       <TimelineToolbar
-        time={time}
-        duration={duration}
+        time={map.outputAt(time)}
+        duration={map.outputDuration}
         playing={playing}
         zoom={zoom}
+        onAddSpeed={addSpeed}
         onToggle={() => clock.toggle()}
         onStep={(direction) => {
           clock.pause();
@@ -135,13 +174,25 @@ export function Timeline({ clock, duration, trim, onTrimChange }: {
                     <IconVideo size={10} stroke={2.2} />
                     Clip
                   </span>
-                  <span className="text-[11px]">{formatDuration(trim.end - trim.start)}</span>
+                  <span className="text-[11px]">{formatDuration(map.outputDuration)}</span>
                 </div>
               </div>
               <TrimHandle side="start" onPointerDown={(event) => startDrag("trim-start", event)} />
               <TrimHandle side="end" onPointerDown={(event) => startDrag("trim-end", event)} />
             </div>
           </div>
+
+          {speed.length > 0 && (
+            <SpeedLane
+              clips={speed}
+              selectedId={selectedSpeedId}
+              bounds={trim}
+              percent={percent}
+              timeAt={timeAt}
+              onSelect={setSelectedSpeedId}
+              onChange={onSpeedChange}
+            />
+          )}
 
           <div className="pointer-events-none absolute inset-y-0 z-30 -translate-x-1/2" style={{ left: percent(time) }}>
             <svg width="11" height="9" viewBox="0 0 11 9" className="absolute -top-1 left-1/2 -translate-x-1/2 text-ring">
@@ -151,6 +202,16 @@ export function Timeline({ clock, duration, trim, onTrimChange }: {
           </div>
         </div>
       </div>
+      {selectedSpeed && (
+        <SpeedControls
+          clip={selectedSpeed}
+          onRate={(rate) => onSpeedChange(setSpeedRate(speed, selectedSpeed.id, rate), `speed.${selectedSpeed.id}.rate`)}
+          onRemove={() => {
+            onSpeedChange(removeSpeedClip(speed, selectedSpeed.id));
+            setSelectedSpeedId(null);
+          }}
+        />
+      )}
     </div>
   );
 }

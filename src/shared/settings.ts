@@ -53,6 +53,13 @@ export interface TrimRange {
   end: number | null;
 }
 
+export interface SpeedClip {
+  id: string;
+  start: number;
+  end: number;
+  rate: number;
+}
+
 export interface EditorSettings {
   cursor: CursorSettings;
   background: BackgroundSettings;
@@ -60,6 +67,7 @@ export interface EditorSettings {
   audio: AudioSettings;
   aspectRatio: AspectRatioId;
   trim: TrimRange;
+  speed: SpeedClip[];
 }
 
 export const DEFAULT_CURSOR_SETTINGS: CursorSettings = {
@@ -114,6 +122,7 @@ export function createDefaultSettings(): EditorSettings {
     audio: { ...DEFAULT_AUDIO_SETTINGS },
     aspectRatio: "source",
     trim: { start: 0, end: null },
+    speed: [],
   };
 }
 
@@ -126,6 +135,7 @@ export function withDefaults(settings: Partial<EditorSettings> | null | undefine
     audio: { ...defaults.audio, ...settings?.audio },
     aspectRatio: settings?.aspectRatio ?? defaults.aspectRatio,
     trim: { ...defaults.trim, ...settings?.trim },
+    speed: Array.isArray(settings?.speed) ? settings.speed : defaults.speed,
   };
 }
 
@@ -136,6 +146,7 @@ export interface SettingsPatch {
   audio?: Partial<AudioSettings>;
   aspectRatio?: AspectRatioId;
   trim?: Partial<TrimRange>;
+  speed?: SpeedClip[];
 }
 
 export function applySettingsPatch(settings: EditorSettings, patch: SettingsPatch): EditorSettings {
@@ -146,5 +157,6 @@ export function applySettingsPatch(settings: EditorSettings, patch: SettingsPatc
     audio: patch.audio ? { ...settings.audio, ...patch.audio } : settings.audio,
     aspectRatio: patch.aspectRatio ?? settings.aspectRatio,
     trim: patch.trim ? { ...settings.trim, ...patch.trim } : settings.trim,
+    speed: patch.speed ?? settings.speed,
   };
 }

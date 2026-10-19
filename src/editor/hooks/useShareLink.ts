@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import type { EncodedVideo } from "@/export/encoder";
-import { exportVideo, trimmedRange } from "@/export/exportVideo";
+import { exportVideo } from "@/export/exportVideo";
+import { TimeMap } from "@/render/timeMap";
 import { shareExportOptions } from "@/export/shareOptions";
 import { renderThumbnail } from "@/export/thumbnail";
 import type { SceneInputs } from "@/render/compositor";
@@ -58,12 +59,12 @@ export function useShareLink(media: ProjectMedia, inputs: SceneInputs, onShared:
 
   const upload = async (video: EncodedVideo, signal: AbortSignal): Promise<ProjectShare> => {
     setState({ status: "uploading", progress: 0 });
-    const { start, end } = trimmedRange(inputs.settings, media.project.duration);
+    const durationSeconds = TimeMap.fromSettings(inputs.settings, media.project.duration).outputDuration;
     const share = await shareVideo({
       video: video.blob,
       thumbnail: await renderThumbnail(media, inputs).catch(() => null),
       title: media.project.name,
-      durationSeconds: end - start,
+      durationSeconds,
       onProgress: (progress) => setState((current) => (current.status === "uploading" ? { status: "uploading", progress } : current)),
       signal,
     });

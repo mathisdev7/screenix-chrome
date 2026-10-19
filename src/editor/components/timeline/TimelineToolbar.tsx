@@ -1,4 +1,4 @@
-import { IconMinus, IconPlayerPauseFilled, IconPlayerPlayFilled, IconPlayerTrackNextFilled, IconPlayerTrackPrevFilled, IconPlus } from "@tabler/icons-react";
+import { IconBolt, IconMinus, IconPlayerPauseFilled, IconPlayerPlayFilled, IconPlayerTrackNextFilled, IconPlayerTrackPrevFilled, IconPlus } from "@tabler/icons-react";
 import type { ReactNode } from "react";
 import { formatClock } from "../../lib/format";
 
@@ -15,7 +15,7 @@ function ToolbarButton({ title, onClick, children }: { title: string; onClick: (
   );
 }
 
-export function TimelineToolbar({ time, duration, playing, zoom, onToggle, onStep, onZoom }: {
+export function TimelineToolbar({ time, duration, playing, zoom, onToggle, onStep, onZoom, onAddSpeed }: {
   time: number;
   duration: number;
   playing: boolean;
@@ -23,12 +23,24 @@ export function TimelineToolbar({ time, duration, playing, zoom, onToggle, onSte
   onToggle: () => void;
   onStep: (direction: -1 | 1) => void;
   onZoom: (zoom: number) => void;
+  onAddSpeed: () => void;
 }) {
   return (
     <div className="grid grid-cols-[1fr_auto_1fr] items-center">
-      <span className="text-[11px] font-medium tabular-nums text-muted-foreground">
-        {formatClock(time)} <span className="opacity-50">/</span> {formatClock(duration)}
-      </span>
+      <div className="flex items-center gap-3">
+        <span className="text-[11px] font-medium tabular-nums text-muted-foreground">
+          {formatClock(time)} <span className="opacity-50">/</span> {formatClock(duration)}
+        </span>
+        <button
+          type="button"
+          title="Speed up or slow down part of the video, starting at the playhead"
+          onClick={onAddSpeed}
+          className="flex h-7 items-center gap-1.5 rounded-lg border px-2.5 text-[11px] font-medium text-foreground hover:bg-accent/60"
+        >
+          <IconBolt size={13} />
+          Add speed
+        </button>
+      </div>
       <div className="flex">
         <ToolbarButton title="Previous frame" onClick={() => onStep(-1)}>
           <IconPlayerTrackPrevFilled size={13} />

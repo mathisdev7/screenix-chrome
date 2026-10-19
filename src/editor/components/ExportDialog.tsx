@@ -243,7 +243,7 @@ export function ExportDialog({ open, onOpenChange, media, inputs, license, onSha
           {license ? (
             <p className="flex items-center gap-2 text-[12px] text-muted-foreground">
               <span className="size-1.5 shrink-0 rounded-full bg-[#70b38f]" />
-              <span className="truncate">No watermark · licensed to {license.email}</span>
+              <span className="truncate">No watermark · licensed</span>
             </p>
           ) : (
             <WatermarkNotice exported={state.status === "done"} />

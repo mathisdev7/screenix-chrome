@@ -14,7 +14,7 @@ export function LicenseStatus() {
         className="flex h-7 max-w-[260px] items-center gap-2 rounded-lg border px-3 text-xs transition-colors hover:bg-accent/70"
       >
         <span className={clsx("size-1.5 shrink-0 rounded-full", license ? "bg-[#70b38f]" : "bg-[#d9a45a]")} />
-        <span className="truncate">{license ? `Licensed · ${license.email}` : "Free · exports have a watermark"}</span>
+        <span className="truncate">{license ? "Licensed · no watermark" : "Free · exports have a watermark"}</span>
       </button>
       {!license && (
         <button type="button" onClick={openLicensePricing} className="gold-button flex h-7 items-center rounded-lg px-3 text-xs">

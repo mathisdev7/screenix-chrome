@@ -1,19 +1,21 @@
 import { trackVolume, type LoadedAudioTrack } from "@/render/audioTracks";
+import { MAX_AUDIBLE_RATE } from "@/render/timeMap";
+import { encodeWav } from "@/render/wav";
 import type { AudioSettings } from "@/shared/settings";
 import type { PlaybackSnapshot } from "./PlaybackClock";
 
 const RESYNC_THRESHOLD_SECONDS = 0.15;
 
-interface PlayingTrack {
-  source: AudioBufferSourceNode;
-  gain: GainNode;
+interface TrackOutput {
   track: LoadedAudioTrack;
+  element: HTMLAudioElement;
+  gain: GainNode;
+  url: string;
 }
 
 export class AudioPlayer {
   private context: AudioContext | null = null;
-  private playing: PlayingTrack[] = [];
-  private anchor: { time: number; contextTime: number } | null = null;
+  private outputs: TrackOutput[] = [];
   private settings: AudioSettings;
 
   constructor(
@@ -25,56 +27,61 @@ export class AudioPlayer {
 
   setSettings(settings: AudioSettings) {
     this.settings = settings;
-    for (const { gain, track } of this.playing) gain.gain.value = trackVolume(track.info.kind, settings);
+    for (const { gain, track } of this.outputs) gain.gain.value = trackVolume(track.info.kind, settings);
   }
 
-  sync({ time, playing }: PlaybackSnapshot) {
+  sync({ time, playing }: PlaybackSnapshot, rate: number) {
     if (!playing) {
-      this.stop();
+      for (const { element } of this.outputs) element.pause();
       return;
     }
-    if (!this.anchor || Math.abs(this.expectedTime() - time) > RESYNC_THRESHOLD_SECONDS) this.start(time);
+    for (const output of this.ensureOutputs()) this.syncTrack(output, time, rate);
   }
 
   dispose() {
-    this.stop();
+    for (const { element, gain, url } of this.outputs) {
+      element.pause();
+      element.removeAttribute("src");
+      element.load();
+      gain.disconnect();
+      URL.revokeObjectURL(url);
+    }
+    this.outputs = [];
     void this.context?.close();
     this.context = null;
   }
 
-  private expectedTime(): number {
-    if (!this.anchor || !this.context) return 0;
-    return this.anchor.time + (this.context.currentTime - this.anchor.contextTime);
-  }
-
-  private start(time: number) {
-    this.stop();
-    if (this.tracks.length === 0) return;
+  private ensureOutputs(): TrackOutput[] {
+    if (this.outputs.length > 0 || this.tracks.length === 0) return this.outputs;
     this.context ??= new AudioContext();
     const context = this.context;
     void context.resume();
-    this.anchor = { time, contextTime: context.currentTime };
-    this.playing = this.tracks.map((track) => {
+    this.outputs = this.tracks.map((track) => {
+      const url = URL.createObjectURL(encodeWav(track.buffer));
+      const element = new Audio(url);
+      element.preload = "auto";
+      element.preservesPitch = true;
       const gain = context.createGain();
       gain.gain.value = trackVolume(track.info.kind, this.settings);
+      context.createMediaElementSource(element).connect(gain);
       gain.connect(context.destination);
-      const source = context.createBufferSource();
-      source.buffer = track.buffer;
-      source.connect(gain);
-      const offset = time - track.info.startT;
-      if (offset >= 0) source.start(context.currentTime, offset);
-      else source.start(context.currentTime - offset);
-      return { source, gain, track };
+      return { track, element, gain, url };
     });
+    return this.outputs;
   }
 
-  private stop() {
-    for (const { source, gain } of this.playing) {
-      source.stop();
-      source.disconnect();
-      gain.disconnect();
+  private syncTrack({ track, element }: TrackOutput, time: number, rate: number) {
+    const offset = time - track.info.startT;
+    if (offset < 0 || offset >= track.buffer.duration || rate > MAX_AUDIBLE_RATE) {
+      element.pause();
+      return;
     }
-    this.playing = [];
-    this.anchor = null;
+    if (element.playbackRate !== rate) element.playbackRate = rate;
+    if (element.paused) {
+      element.currentTime = offset;
+      void element.play().catch(() => undefined);
+      return;
+    }
+    if (Math.abs(element.currentTime - offset) > RESYNC_THRESHOLD_SECONDS * Math.max(1, rate)) element.currentTime = offset;
   }
 }

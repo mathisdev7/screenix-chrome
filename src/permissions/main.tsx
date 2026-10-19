@@ -5,8 +5,10 @@ import "@/styles/controls.css";
 import "@/styles/editor.css";
 import { applyTheme, readStoredTheme } from "@/editor/hooks/useTheme";
 import { PermissionsPage } from "./PermissionsPage";
+import { trackPointerOnExtensionPage } from "@/shared/trackExtensionPage";
 
 applyTheme(readStoredTheme());
+trackPointerOnExtensionPage();
 
 const root = document.getElementById("root");
 if (root) {

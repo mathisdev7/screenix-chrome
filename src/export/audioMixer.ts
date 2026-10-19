@@ -1,24 +1,58 @@
 import { trackVolume, type LoadedAudioTrack } from "@/render/audioTracks";
+import { MAX_AUDIBLE_RATE, type TimeMap } from "@/render/timeMap";
 import type { AudioSettings } from "@/shared/settings";
 import { EXPORT_CHANNELS, EXPORT_SAMPLE_RATE } from "./audioEncoding";
+import { timeStretch } from "./timeStretch";
 
 interface MixSource {
-  track: LoadedAudioTrack;
   volume: number;
   planes: Float32Array[];
+}
+
+function trackPlanes(track: LoadedAudioTrack): Float32Array[] {
+  const planes = Array.from({ length: track.buffer.numberOfChannels }, (_, channel) => track.buffer.getChannelData(channel));
+  return Array.from({ length: EXPORT_CHANNELS }, (_, channel) => planes[Math.min(channel, planes.length - 1)]);
+}
+
+function extract(track: LoadedAudioTrack, planes: readonly Float32Array[], fromSeconds: number, length: number): Float32Array[] {
+  const ratio = track.info.sampleRate / EXPORT_SAMPLE_RATE;
+  const origin = (fromSeconds - track.info.startT) * track.info.sampleRate;
+  return planes.map((plane) => {
+    const output = new Float32Array(length);
+    for (let frame = 0; frame < length; frame++) {
+      const position = origin + frame * ratio;
+      const index = Math.floor(position);
+      if (index < 0 || index + 1 >= plane.length) continue;
+      output[frame] = plane[index] + (plane[index + 1] - plane[index]) * (position - index);
+    }
+    return output;
+  });
+}
+
+function renderOnTimeline(track: LoadedAudioTrack, map: TimeMap, outputLength: number): Float32Array[] {
+  const planes = trackPlanes(track);
+  const output = planes.map(() => new Float32Array(outputLength));
+  for (const segment of map.segments) {
+    const at = Math.round(segment.outputStart * EXPORT_SAMPLE_RATE);
+    const sourceLength = Math.round((segment.sourceEnd - segment.sourceStart) * EXPORT_SAMPLE_RATE);
+    const targetLength = Math.min(outputLength - at, Math.round(((segment.sourceEnd - segment.sourceStart) / segment.rate) * EXPORT_SAMPLE_RATE));
+    if (targetLength <= 0 || sourceLength <= 0 || segment.rate > MAX_AUDIBLE_RATE) continue;
+    const source = extract(track, planes, segment.sourceStart, sourceLength);
+    const timed = segment.rate === 1 ? source : timeStretch(source, targetLength);
+    timed.forEach((plane, channel) => output[channel].set(plane.subarray(0, targetLength), at));
+  }
+  return output;
 }
 
 export class AudioMixer {
   private readonly sources: MixSource[];
 
-  constructor(tracks: readonly LoadedAudioTrack[], settings: AudioSettings, private readonly startTime: number) {
+  constructor(tracks: readonly LoadedAudioTrack[], settings: AudioSettings, map: TimeMap) {
+    const outputLength = Math.ceil(map.outputDuration * EXPORT_SAMPLE_RATE);
     this.sources = tracks
-      .map((track) => ({
-        track,
-        volume: trackVolume(track.info.kind, settings),
-        planes: Array.from({ length: track.buffer.numberOfChannels }, (_, channel) => track.buffer.getChannelData(channel)),
-      }))
-      .filter((source) => source.volume > 0);
+      .map((track) => ({ track, volume: trackVolume(track.info.kind, settings) }))
+      .filter(({ volume }) => volume > 0)
+      .map(({ track, volume }) => ({ volume, planes: renderOnTimeline(track, map, outputLength) }));
   }
 
   get hasAudio(): boolean {
@@ -27,17 +61,12 @@ export class AudioMixer {
 
   read(startFrame: number, frameCount: number): Float32Array<ArrayBuffer> {
     const output = new Float32Array(frameCount * EXPORT_CHANNELS);
-    for (const { track, volume, planes } of this.sources) {
-      const ratio = track.info.sampleRate / EXPORT_SAMPLE_RATE;
-      const origin = (this.startTime + startFrame / EXPORT_SAMPLE_RATE - track.info.startT) * track.info.sampleRate;
-      for (let frame = 0; frame < frameCount; frame++) {
-        const position = origin + frame * ratio;
-        const index = Math.floor(position);
-        if (index < 0 || index + 1 >= track.buffer.length) continue;
-        const fraction = position - index;
-        for (let channel = 0; channel < EXPORT_CHANNELS; channel++) {
-          const plane = planes[Math.min(channel, planes.length - 1)];
-          output[channel * frameCount + frame] += (plane[index] + (plane[index + 1] - plane[index]) * fraction) * volume;
+    for (const { volume, planes } of this.sources) {
+      for (let channel = 0; channel < EXPORT_CHANNELS; channel++) {
+        const plane = planes[channel];
+        for (let frame = 0; frame < frameCount; frame++) {
+          const index = startFrame + frame;
+          if (index < plane.length) output[channel * frameCount + frame] += plane[index] * volume;
         }
       }
     }

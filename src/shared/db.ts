@@ -131,6 +131,15 @@ export async function addCameraFrame(frame: FrameRecord): Promise<void> {
   await promisify((await store(STORES.camera, "readwrite")).put(frame));
 }
 
+export async function replaceCameraFrames(projectId: ProjectId, frames: FrameRecord[]): Promise<void> {
+  const db = await openDatabase();
+  const transaction = db.transaction(STORES.camera, "readwrite");
+  const camera = transaction.objectStore(STORES.camera);
+  camera.delete(projectRange(projectId));
+  for (const frame of frames) camera.put(frame);
+  await transactionDone(transaction);
+}
+
 export async function getCameraFrames(projectId: ProjectId): Promise<FrameRecord[]> {
   const frames: FrameRecord[] = await promisify((await store(STORES.camera, "readonly")).getAll(projectRange(projectId)));
   return frames.sort((a, b) => a.t - b.t || a.seq - b.seq);

@@ -1,5 +1,7 @@
+import { useRef } from "react";
 import { DEFAULT_CAMERA_SETTINGS, type CameraSettings, type SettingsPatch } from "@/shared/settings";
-import { ChoiceButton, Section, SliderRow, SwitchRow } from "../controls";
+import type { CameraImportState } from "../../hooks/useCameraImport";
+import { ActionButton, ChoiceButton, Section, SliderRow, SwitchRow } from "../controls";
 
 const CORNERS: readonly { x: number; y: number; label: string }[] = [
   { x: 0, y: 0, label: "Top left" },
@@ -10,17 +12,52 @@ const CORNERS: readonly { x: number; y: number; label: string }[] = [
 
 const STYLE_KEYS = ["size", "roundness", "squircle", "shadow", "mirror"] as const;
 
-export function CameraPanel({ hasCamera, camera, onChange }: {
+function CameraVideoImport({ hasCamera, state, onImport }: {
+  hasCamera: boolean;
+  state: CameraImportState;
+  onImport: (file: File) => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const importing = state.status === "importing";
+
+  return (
+    <div className="space-y-2">
+      <input
+        ref={inputRef}
+        type="file"
+        accept="video/*"
+        className="hidden"
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          event.target.value = "";
+          if (file) onImport(file);
+        }}
+      />
+      <ActionButton disabled={importing} onClick={() => inputRef.current?.click()}>
+        {importing ? `Importing… ${Math.round(state.progress * 100)}%` : hasCamera ? "Replace with a video" : "Import a video as camera"}
+      </ActionButton>
+      {state.status === "failed" && <p role="alert" className="text-[11px] text-destructive">{state.message}</p>}
+      <p className="text-[11px] leading-snug text-muted-foreground">
+        Videos shorter than the recording loop to fill it.
+      </p>
+    </div>
+  );
+}
+
+export function CameraPanel({ hasCamera, camera, importState, onImportVideo, onChange }: {
   hasCamera: boolean;
   camera: CameraSettings;
+  importState: CameraImportState;
+  onImportVideo: (file: File) => void;
   onChange: (patch: SettingsPatch, coalesceKey?: string) => void;
 }) {
   if (!hasCamera) {
     return (
       <Section title="Camera">
         <p className="text-[11px] leading-snug text-muted-foreground">
-          This recording has no camera. Choose a camera in the Screenix popup before recording.
+          This recording has no camera. Choose a camera in the Screenix popup before recording, or import a video to use as the camera.
         </p>
+        <CameraVideoImport hasCamera={false} state={importState} onImport={onImportVideo} />
       </Section>
     );
   }
@@ -61,6 +98,10 @@ export function CameraPanel({ hasCamera, camera, onChange }: {
           </Section>
         </>
       )}
+
+      <Section title="Source">
+        <CameraVideoImport hasCamera state={importState} onImport={onImportVideo} />
+      </Section>
     </div>
   );
 }

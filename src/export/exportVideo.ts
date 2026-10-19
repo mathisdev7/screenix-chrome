@@ -1,6 +1,7 @@
 import { Compositor, type SceneInputs } from "@/render/compositor";
 import { aspectValue, encoderSizeForShortSide, type Size } from "@/render/geometry";
 import type { ProjectMedia } from "@/render/projectMedia";
+import { TimeMap } from "@/render/timeMap";
 import { loadWatermark, paintWatermark } from "@/render/watermark";
 import type { EditorSettings } from "@/shared/settings";
 import { EXPORT_SAMPLE_RATE } from "./audioEncoding";
@@ -27,12 +28,6 @@ export function exportSize(settings: EditorSettings, source: Size, resolution: E
   return encoderSizeForShortSide(aspect, shortSide);
 }
 
-export function trimmedRange(settings: EditorSettings, duration: number): { start: number; end: number } {
-  const start = Math.max(0, Math.min(settings.trim.start, duration));
-  const end = Math.max(start, Math.min(settings.trim.end ?? duration, duration));
-  return { start, end };
-}
-
 export async function exportVideo(
   media: ProjectMedia,
   inputs: SceneInputs,
@@ -42,8 +37,8 @@ export async function exportVideo(
   signal: AbortSignal,
 ): Promise<EncodedVideo> {
   const size = exportSize(inputs.settings, media.source, options.resolution);
-  const { start, end } = trimmedRange(inputs.settings, media.project.duration);
-  const frameCount = Math.max(1, Math.ceil((end - start) * options.fps));
+  const map = TimeMap.fromSettings(inputs.settings, media.project.duration);
+  const frameCount = Math.max(1, Math.ceil(map.outputDuration * options.fps));
   const canvas = new OffscreenCanvas(size.width, size.height);
   const ctx = canvas.getContext("2d", { alpha: false });
   if (!ctx) throw new Error("Could not create a drawing surface for the export.");
@@ -52,14 +47,14 @@ export async function exportVideo(
   const watermark = watermarked ? await loadWatermark() : null;
   const frames = media.frames.clone();
   const camera = inputs.settings.camera.enabled ? media.camera?.clone() ?? null : null;
-  const mixer = new AudioMixer(media.audio, inputs.settings.audio, start);
+  const mixer = new AudioMixer(media.audio, inputs.settings.audio, map);
   const totalAudioFrames = Math.round((frameCount / options.fps) * EXPORT_SAMPLE_RATE);
   let audioFrame = 0;
   const encoder = await VideoFileEncoder.create(size, options.fps, options, mixer.hasAudio);
   try {
     for (let index = 0; index < frameCount; index++) {
       if (signal.aborted) throw new DOMException("Export canceled", "AbortError");
-      const time = start + index / options.fps;
+      const time = map.sourceAt(index / options.fps);
       const frameIndex = frames.indexAt(time);
       const frame = frameIndex >= 0 ? await frames.decode(frameIndex) : null;
       frames.pin(frameIndex);

@@ -37,7 +37,6 @@ function ManageLicense({ license }: { license: License }) {
     <div className="space-y-4">
       <div className="space-y-2 rounded-lg border bg-surface-1 p-3">
         <LicenseDetail label="Status" value="Active · no watermark" />
-        <LicenseDetail label="Account" value={license.email} />
         {license.keyHint && <LicenseDetail label="License key" value={`SCRX-••••-${license.keyHint}`} />}
       </div>
       {request.status === "failed" && <p role="alert" className="text-[12px] text-destructive">{request.error}</p>}

@@ -1,3 +1,5 @@
+import { TimeMap } from "@/render/timeMap";
+
 export interface PlaybackSnapshot {
   time: number;
   playing: boolean;
@@ -5,13 +7,15 @@ export interface PlaybackSnapshot {
 
 type Listener = () => void;
 
+const END_TOLERANCE_SECONDS = 1e-3;
+
 export class PlaybackClock {
   private snapshot: PlaybackSnapshot = { time: 0, playing: false };
   private readonly listeners = new Set<Listener>();
-  private anchorTime = 0;
+  private anchorOutput = 0;
   private anchorNow = 0;
   private frame: number | null = null;
-  private range = { start: 0, end: 0 };
+  private timeMap = new TimeMap(0, 0, []);
 
   readonly subscribe = (listener: Listener) => {
     this.listeners.add(listener);
@@ -28,17 +32,20 @@ export class PlaybackClock {
     return this.snapshot.playing;
   }
 
-  setRange(start: number, end: number) {
-    this.range = { start, end };
-    const clamped = Math.min(Math.max(this.snapshot.time, start), end);
-    if (clamped !== this.snapshot.time) this.seek(clamped);
+  get map(): TimeMap {
+    return this.timeMap;
+  }
+
+  setTimeMap(map: TimeMap) {
+    this.timeMap = map;
+    this.seek(this.snapshot.time);
   }
 
   play() {
     if (this.snapshot.playing) return;
-    const time = this.snapshot.time >= this.range.end - 1e-3 ? this.range.start : this.snapshot.time;
-    this.anchorTime = time;
-    this.anchorNow = performance.now();
+    const atEnd = this.timeMap.outputAt(this.snapshot.time) >= this.timeMap.outputDuration - END_TOLERANCE_SECONDS;
+    const time = atEnd ? this.timeMap.sourceStart : this.snapshot.time;
+    this.anchor(time);
     this.emit({ time, playing: true });
     this.frame = requestAnimationFrame(this.tick);
   }
@@ -55,20 +62,24 @@ export class PlaybackClock {
   }
 
   seek(time: number) {
-    const clamped = Math.min(Math.max(time, this.range.start), this.range.end);
-    this.anchorTime = clamped;
-    this.anchorNow = performance.now();
+    const clamped = Math.min(Math.max(time, this.timeMap.sourceStart), this.timeMap.sourceEnd);
+    this.anchor(clamped);
     this.emit({ time: clamped, playing: this.snapshot.playing });
   }
 
+  private anchor(time: number) {
+    this.anchorOutput = this.timeMap.outputAt(time);
+    this.anchorNow = performance.now();
+  }
+
   private readonly tick = (now: number) => {
-    const time = this.anchorTime + (now - this.anchorNow) / 1000;
-    if (time >= this.range.end) {
+    const output = this.anchorOutput + (now - this.anchorNow) / 1000;
+    if (output >= this.timeMap.outputDuration) {
       this.frame = null;
-      this.emit({ time: this.range.end, playing: false });
+      this.emit({ time: this.timeMap.sourceEnd, playing: false });
       return;
     }
-    this.emit({ time, playing: true });
+    this.emit({ time: this.timeMap.sourceAt(output), playing: true });
     this.frame = requestAnimationFrame(this.tick);
   };
 
