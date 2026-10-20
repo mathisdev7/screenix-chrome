@@ -1,15 +1,15 @@
 import type { CursorShape } from "@/shared/cursorShapes";
 import type { PointerSample } from "@/shared/types";
-import { CLICK_SPRING_CONFIG, DRAG_SPRING_CONFIG, SpringCursor, scaledDefaultSpringConfig } from "./spring";
+import { CLICK_SPRING_CONFIG, DRAG_SPRING_CONFIG, SpringCursor, scaledDefaultSpringConfig, type SpringConfig } from "./spring";
 
-const SPRING_FPS = 120;
+export const SPRING_FPS = 120;
 const CLICK_WINDOW = 0.175;
 const MAX_INTERP_GAP = 0.5;
 const SETTLE_TAIL = 2;
 const PRIMARY_BUTTON = 0;
-const LEAVE_MERGE_GAP = 1;
-const LEAVE_HOLD = 0.35;
-const LEAVE_FADE = 0.2;
+export const LEAVE_MERGE_GAP = 1;
+export const LEAVE_HOLD = 0.35;
+export const LEAVE_FADE = 0.2;
 
 export interface TimelinePoint {
   t: number;
@@ -112,6 +112,18 @@ function isNearClick(time: number, clicks: readonly ClickEvent[], startIndex: nu
   return false;
 }
 
+export function nextClickIndex(clicks: readonly ClickEvent[], clickIndex: number, time: number): number {
+  let index = clickIndex;
+  while (index < clicks.length - 1 && clicks[index].t < time - CLICK_WINDOW) index++;
+  return index;
+}
+
+export function springConfigAt(time: number, clicks: readonly ClickEvent[], clickIndex: number, speed: number): SpringConfig {
+  if (isDraggingAt(time, clicks)) return DRAG_SPRING_CONFIG;
+  if (isNearClick(time, clicks, clickIndex)) return CLICK_SPRING_CONFIG;
+  return scaledDefaultSpringConfig(speed);
+}
+
 function springTimeline(samples: readonly TimelinePoint[], clicks: readonly ClickEvent[], endT: number, speed: number): TimelinePoint[] {
   if (samples.length < 2) return [...samples];
 
@@ -137,12 +149,8 @@ function springTimeline(samples: readonly TimelinePoint[], clicks: readonly Clic
     const targetX = a.x + (b.x - a.x) * f;
     const targetY = a.y + (b.y - a.y) * f;
 
-    while (clickIndex < clicks.length - 1 && clicks[clickIndex].t < t - CLICK_WINDOW) clickIndex++;
-
-    if (isDraggingAt(t, clicks)) spring.updateConfig(DRAG_SPRING_CONFIG);
-    else if (isNearClick(t, clicks, clickIndex)) spring.updateConfig(CLICK_SPRING_CONFIG);
-    else spring.updateConfig(scaledDefaultSpringConfig(speed));
-
+    clickIndex = nextClickIndex(clicks, clickIndex, t);
+    spring.updateConfig(springConfigAt(t, clicks, clickIndex, speed));
     spring.setTarget(targetX, targetY);
     const position = spring.step(frameDt);
     out.push({ t, x: position.x, y: position.y });
@@ -159,7 +167,7 @@ interface SegmentDraft {
 
 const clamp01 = (value: number) => Math.min(1, Math.max(0, value));
 
-function edgeSample(leave: PointerSample): PointerSample {
+export function edgeSample(leave: PointerSample): PointerSample {
   return { ...leave, kind: "move", x: clamp01(leave.x), y: clamp01(leave.y) };
 }
 

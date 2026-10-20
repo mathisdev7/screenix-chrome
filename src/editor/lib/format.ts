@@ -12,3 +12,7 @@ export function fileNameFor(projectName: string, extension: string): string {
   const base = projectName.replace(/[\\/:*?"<>|]+/g, "-").replace(/\s+/g, " ").trim() || "Screenix recording";
   return `${base}.${extension}`;
 }
+
+export function formatFileSize(bytes: number): string {
+  return bytes < 1_000_000 ? `${Math.max(1, Math.round(bytes / 1000))} KB` : `${(bytes / 1_000_000).toFixed(1)} MB`;
+}

@@ -54,6 +54,11 @@ function align(value: number, step: number): number {
   return Math.max(step, Math.round(value / step) * step);
 }
 
+export function alignedSizeWithin(size: Size): Size {
+  const alignDown = (value: number, step: number) => Math.max(step, Math.floor(value / step) * step);
+  return { width: alignDown(size.width, ENCODER_WIDTH_ALIGNMENT), height: alignDown(size.height, ENCODER_HEIGHT_ALIGNMENT) };
+}
+
 export function encoderSizeForShortSide(aspect: number, shortSide: number): Size {
   if (aspect >= 1) {
     const height = align(shortSide, ENCODER_HEIGHT_ALIGNMENT);
@@ -101,9 +106,22 @@ export function videoRectFor(output: Size, source: Size, background: BackgroundS
 }
 
 const FILL_ASPECT_TOLERANCE = 0.15;
+const PIXEL_EXACT_TOLERANCE = 0.01;
+
+function pixelExactCoverRect(container: Rect, content: Size): Rect {
+  const cover = coverRect(container, content);
+  const scale = cover.width / content.width;
+  if (scale > 1 || scale < 1 - PIXEL_EXACT_TOLERANCE) return cover;
+  return {
+    x: Math.round(container.x + (container.width - content.width) / 2),
+    y: Math.round(container.y + (container.height - content.height) / 2),
+    width: content.width,
+    height: content.height,
+  };
+}
 
 export function frameRectFor(video: Rect, frame: Size, background: BackgroundSettings): Rect {
-  if (!background.enabled) return coverRect(video, frame);
+  if (!background.enabled) return pixelExactCoverRect(video, frame);
   const aspectMismatch = (frame.width / frame.height) / (video.width / video.height) - 1;
   if (Math.abs(aspectMismatch) > FILL_ASPECT_TOLERANCE) return containRect(video, frame);
   return { ...coverRect(video, frame), y: video.y };

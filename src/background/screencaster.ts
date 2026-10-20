@@ -1,5 +1,5 @@
 const PROTOCOL_VERSION = "1.3";
-const JPEG_QUALITY = 90;
+const JPEG_QUALITY = 100;
 const MAX_CLOCK_SKEW_MS = 5000;
 const STALL_TIMEOUT_MS = 1000;
 const WATCHDOG_INTERVAL_MS = 250;
@@ -22,7 +22,7 @@ interface FrameNavigatedParams {
 }
 
 interface EvaluateResult {
-  result: { value: [number, number] };
+  result: { value: [number, number, number] };
 }
 
 function frameEpochMs(timestampSeconds: number | undefined): number {
@@ -36,7 +36,7 @@ function isMainFrameNavigation(method: string, params: object | undefined): bool
   return !(params as FrameNavigatedParams | undefined)?.frame?.parentId;
 }
 
-const MAX_SIZE_EXPRESSION = "[Math.round(screen.width * devicePixelRatio), Math.round(screen.height * devicePixelRatio)]";
+const SCREEN_EXPRESSION = "[screen.width, screen.height, devicePixelRatio]";
 
 export class Screencaster {
   private readonly attached = new Set<number>();
@@ -49,6 +49,7 @@ export class Screencaster {
   constructor(
     private readonly onFrame: (frame: ScreencastFrame) => void,
     private readonly onCanceledByUser: () => void,
+    private readonly maxLongSide: number | null,
   ) {
     chrome.debugger.onEvent.addListener(this.handleEvent);
     chrome.debugger.onDetach.addListener(this.handleDetach);
@@ -91,11 +92,15 @@ export class Screencaster {
     const cached = this.maxSizes.get(tabId);
     if (cached) return cached;
     const { result } = (await chrome.debugger.sendCommand({ tabId }, "Runtime.evaluate", {
-      expression: MAX_SIZE_EXPRESSION,
+      expression: SCREEN_EXPRESSION,
       returnByValue: true,
     })) as EvaluateResult;
-    this.maxSizes.set(tabId, result.value);
-    return result.value;
+    const [width, height, pixelRatio] = result.value;
+    const longSide = Math.max(width, height) * pixelRatio;
+    const scale = this.maxLongSide === null ? 1 : Math.min(1, Math.max(1 / pixelRatio, this.maxLongSide / longSide));
+    const size: [number, number] = [Math.round(width * pixelRatio * scale), Math.round(height * pixelRatio * scale)];
+    this.maxSizes.set(tabId, size);
+    return size;
   }
 
   private async startScreencast(tabId: number) {

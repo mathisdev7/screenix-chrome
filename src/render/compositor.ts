@@ -32,9 +32,16 @@ function applyZoom(ctx: Context2D, video: Rect, { scale, centerX, centerY }: Zoo
   ctx.translate(-(video.x + centerX * video.width), -(video.y + centerY * video.height));
 }
 
+interface Backdrop {
+  key: string;
+  wallpaper: ImageBitmap | null;
+  canvas: OffscreenCanvas;
+}
+
 export class Compositor {
   private readonly cursorPainter = new CursorPainter();
   private readonly backgroundLayer = new BackgroundLayer();
+  private backdrop: Backdrop | null = null;
 
   constructor(private inputs: SceneInputs) {}
 
@@ -57,11 +64,7 @@ export class Compositor {
     ctx.clearRect(0, 0, output.width, output.height);
     ctx.save();
     if (zoomScene) applyZoom(ctx, video, zoom);
-    if (background.enabled) {
-      ctx.drawImage(this.backgroundLayer.get(output, background, this.inputs.wallpaper), 0, 0);
-      this.paintShadow(ctx, video, radius, scale);
-      this.paintGlassBorder(ctx, output, video, radius, scale);
-    }
+    if (background.enabled) ctx.drawImage(this.backdropFor(output, video, radius, scale), 0, 0);
 
     ctx.save();
     ctx.clip(shape);
@@ -86,6 +89,21 @@ export class Compositor {
 
     if (camera && settings.camera.enabled) paintCameraBubble(ctx, output, settings.camera, camera);
     ctx.restore();
+  }
+
+  private backdropFor(output: Size, video: Rect, radius: number, scale: number): OffscreenCanvas {
+    const { settings, wallpaper } = this.inputs;
+    const key = JSON.stringify([output.width, output.height, video, radius, scale, settings.background]);
+    if (this.backdrop?.key === key && this.backdrop.wallpaper === wallpaper) return this.backdrop.canvas;
+    const canvas = new OffscreenCanvas(output.width, output.height);
+    const ctx = canvas.getContext("2d");
+    if (ctx) {
+      ctx.drawImage(this.backgroundLayer.get(output, settings.background, wallpaper), 0, 0);
+      this.paintShadow(ctx, video, radius, scale);
+      this.paintGlassBorder(ctx, output, video, radius, scale);
+    }
+    this.backdrop = { key, wallpaper, canvas };
+    return canvas;
   }
 
   private paintShadow(ctx: Context2D, video: Rect, radius: number, scale: number) {
@@ -145,9 +163,8 @@ export class Compositor {
       motionY: (y - previousY) * trail,
       pixelScale: frameRect.width / Math.max(1, sourceWidth),
       opacity: state.opacity,
-      shadowFilter: settings.shadow > 0
-        ? `drop-shadow(0px 0px ${Math.max(1, width * 0.06).toFixed(2)}px rgba(0,0,0,${settings.shadow.toFixed(2)}))`
-        : "",
+      shadowBlur: settings.shadow > 0 ? Math.max(2, width * 0.12) : 0,
+      shadowColor: `rgba(0,0,0,${settings.shadow.toFixed(2)})`,
     });
   }
 }

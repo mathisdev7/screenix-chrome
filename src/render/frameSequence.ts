@@ -8,10 +8,21 @@ export class FrameSequence {
   private pinned: number | null = null;
   private shown: ImageBitmap | null = null;
 
-  constructor(private readonly frames: readonly FrameRecord[]) {}
+  private readonly frames: FrameRecord[];
+
+  constructor(frames: readonly FrameRecord[]) {
+    this.frames = [...frames];
+  }
 
   clone(): FrameSequence {
     return new FrameSequence(this.frames);
+  }
+
+  append(records: readonly FrameRecord[]) {
+    for (const record of records) {
+      const last = this.frames.at(-1);
+      if (!last || record.t >= last.t) this.frames.push(record);
+    }
   }
 
   get length(): number {

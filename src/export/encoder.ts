@@ -13,6 +13,7 @@ export type EncoderPreference = "software" | "hardware";
 export interface EncoderChoice {
   format: VideoFormat;
   encoder: EncoderPreference;
+  latency?: LatencyMode;
 }
 
 interface FormatSpec {
@@ -76,7 +77,7 @@ function baseConfig(codec: string, spec: FormatSpec, choice: EncoderChoice, size
     height: size.height,
     framerate: fps,
     hardwareAcceleration: ACCELERATION[choice.encoder],
-    latencyMode: "quality",
+    latencyMode: choice.latency ?? "quality",
     ...(spec.muxerCodec === "avc" ? { avc: { format: "avc" } } : {}),
   };
 }
@@ -104,6 +105,7 @@ export class VideoFileEncoder {
   private readonly encoder: VideoEncoder;
   private readonly frameOptions: VideoEncoderEncodeOptions;
   private readonly keyframeInterval: number;
+  private lastKeyframe = -Infinity;
   private error: Error | null = null;
 
   private constructor(
@@ -146,7 +148,9 @@ export class VideoFileEncoder {
       timestamp: Math.round((index * 1_000_000) / this.fps),
       duration: Math.round(1_000_000 / this.fps),
     });
-    this.encoder.encode(frame, { ...this.frameOptions, keyFrame: index % this.keyframeInterval === 0 });
+    const keyFrame = index - this.lastKeyframe >= this.keyframeInterval;
+    if (keyFrame) this.lastKeyframe = index;
+    this.encoder.encode(frame, { ...this.frameOptions, keyFrame });
     frame.close();
   }
 

@@ -18,7 +18,7 @@ export type ShareState =
   | { status: "shared"; url: string; copied: boolean }
   | { status: "failed"; message: string; needsPlan: boolean };
 
-async function copyToClipboard(text: string): Promise<boolean> {
+export async function copyToClipboard(text: string): Promise<boolean> {
   try {
     await navigator.clipboard.writeText(text);
     return true;
@@ -27,7 +27,7 @@ async function copyToClipboard(text: string): Promise<boolean> {
   }
 }
 
-function failure(error: unknown): ShareState {
+export function shareFailure(error: unknown): ShareState {
   return {
     status: "failed",
     message: error instanceof Error ? error.message : String(error),
@@ -51,7 +51,7 @@ export function useShareLink(media: ProjectMedia, inputs: SceneInputs, onShared:
       onShared(share);
       setState({ status: "shared", url: share.url, copied: await copyToClipboard(share.url) });
     } catch (error) {
-      if (!controller.signal.aborted) setState(failure(error));
+      if (!controller.signal.aborted) setState(shareFailure(error));
     } finally {
       if (abortRef.current === controller) abortRef.current = null;
     }
@@ -79,7 +79,7 @@ export function useShareLink(media: ProjectMedia, inputs: SceneInputs, onShared:
       setState({ status: "idle" });
       return true;
     } catch (error) {
-      setState(failure(error));
+      setState(shareFailure(error));
       return false;
     }
   };

@@ -1,7 +1,9 @@
+import type { CaptureSettings } from "@/shared/captureSettings";
 import { addFrame, addPointerBatch, putProject } from "@/shared/db";
-import type { PointerPortMessage, TrackerControlMessage } from "@/shared/messages";
+import { INSTANT_HIDPI_LONG_SIDE, instantSettings } from "@/shared/instant";
+import { readLicense } from "@/shared/license";
+import type { InstantRenderRequest, PointerPortMessage, TrackerControlMessage } from "@/shared/messages";
 import type { CapturedPointerSample, ProjectId, ProjectRecord, TabSegment } from "@/shared/types";
-import { readCaptureSettings } from "@/shared/captureSettings";
 import { MediaCapture } from "./mediaCapture";
 import { Screencaster, type ScreencastFrame } from "./screencaster";
 
@@ -43,18 +45,27 @@ export class RecordingSession {
   private pointerSeq = 0;
   private sampleFrame: Blob | null = null;
   private media: MediaCapture | null = null;
+  private instant: InstantRenderRequest | null = null;
   private stopped = false;
 
   constructor(
     private readonly windowId: number,
+    private readonly capture: CaptureSettings,
     onCanceledByUser: () => void,
   ) {
-    this.screencaster = new Screencaster(this.handleFrame, onCanceledByUser);
+    this.screencaster = new Screencaster(this.handleFrame, onCanceledByUser, this.isInstant ? INSTANT_HIDPI_LONG_SIDE : null);
+  }
+
+  get isInstant(): boolean {
+    return this.capture.mode === "instant";
   }
 
   async start(): Promise<void> {
     const [activeTab] = await chrome.tabs.query({ active: true, windowId: this.windowId });
-    this.media = await MediaCapture.start(await readCaptureSettings(), this.projectId, this.startedAt, activeTab?.id ?? null);
+    if (this.isInstant) {
+      this.instant = { settings: instantSettings(this.capture.instantLook), watermarked: (await readLicense()) === null };
+    }
+    this.media = await MediaCapture.start(this.capture, this.projectId, this.startedAt, activeTab?.id ?? null, this.instant);
     await chrome.scripting.unregisterContentScripts({ ids: [TRACKER_REGISTRATION_ID] }).catch(() => undefined);
     await chrome.scripting.registerContentScripts([{
       id: TRACKER_REGISTRATION_ID,
@@ -93,6 +104,7 @@ export class RecordingSession {
   async abort(): Promise<void> {
     this.stopped = true;
     await this.screencaster.dispose();
+    await this.media?.close();
   }
 
   async stop(): Promise<ProjectRecord> {
@@ -120,12 +132,22 @@ export class RecordingSession {
       frameCount: this.frameSeq,
       tabSegments: this.tabSegments,
       thumbnail: preview?.thumbnail ?? null,
-      settings: null,
+      settings: this.instant?.settings ?? null,
       audioTracks: recordedMedia?.audioTracks ?? [],
       camera: recordedMedia?.camera ?? null,
     };
     await putProject(project);
+    if (!this.instant) await this.media?.close();
     return project;
+  }
+
+  async finishInstant(duration: number): Promise<void> {
+    try {
+      if (!this.media) throw new Error("The instant video didn't start.");
+      await this.media.finishInstant(duration);
+    } finally {
+      await this.media?.close();
+    }
   }
 
   private async follow(tabId: number) {

@@ -12,7 +12,7 @@ function shortLabel(label: string): string {
   return label.length > MAX_DEVICE_LABEL_LENGTH ? `${label.slice(0, MAX_DEVICE_LABEL_LENGTH - 1).trimEnd()}…` : label;
 }
 
-interface MediaState {
+export interface MediaState {
   settings: CaptureSettings;
   devices: MediaDeviceInfo[];
   access: Record<MediaKind, boolean>;
@@ -71,7 +71,7 @@ function DeviceRow({ icon: RowIcon, label, kind, deviceKind, value, state, disab
   );
 }
 
-export function MediaControls({ disabled }: { disabled: boolean }) {
+export function useMediaState() {
   const [state, setState] = useState<MediaState | null>(null);
 
   const reload = useCallback(() => {
@@ -84,14 +84,21 @@ export function MediaControls({ disabled }: { disabled: boolean }) {
     return () => navigator.mediaDevices.removeEventListener("devicechange", reload);
   }, [reload]);
 
-  if (!state) return null;
-
   const update = (patch: Partial<CaptureSettings>) => {
+    if (!state) return;
     const settings = { ...state.settings, ...patch };
     setState({ ...state, settings });
     void writeCaptureSettings(settings);
   };
 
+  return { state, update };
+}
+
+export function MediaControls({ state, disabled, onChange }: {
+  state: MediaState;
+  disabled: boolean;
+  onChange: (patch: Partial<CaptureSettings>) => void;
+}) {
   return (
     <div className="space-y-2">
       <DeviceRow
@@ -102,7 +109,7 @@ export function MediaControls({ disabled }: { disabled: boolean }) {
         value={state.settings.microphoneId}
         state={state}
         disabled={disabled}
-        onChange={(microphoneId) => update({ microphoneId })}
+        onChange={(microphoneId) => onChange({ microphoneId })}
       />
       <DeviceRow
         icon={IconVideo}
@@ -112,12 +119,12 @@ export function MediaControls({ disabled }: { disabled: boolean }) {
         value={state.settings.cameraId}
         state={state}
         disabled={disabled}
-        onChange={(cameraId) => update({ cameraId })}
+        onChange={(cameraId) => onChange({ cameraId })}
       />
       <div className="flex items-center gap-2">
         <IconVolume size={15} stroke={1.8} className="shrink-0 text-muted-foreground" aria-hidden />
         <div className="min-w-0 flex-1">
-          <SwitchRow label="Tab audio" checked={state.settings.tabAudio} onChange={(tabAudio) => update({ tabAudio })} />
+          <SwitchRow label="Tab audio" checked={state.settings.tabAudio} onChange={(tabAudio) => onChange({ tabAudio })} />
         </div>
       </div>
     </div>

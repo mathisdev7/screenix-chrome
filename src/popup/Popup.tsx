@@ -2,7 +2,8 @@ import { IconLayoutGrid, IconPlayerRecordFilled, IconPlayerStopFilled } from "@t
 import clsx from "clsx";
 import { useEffect, useState } from "react";
 import { openLicensePricing, useLicense } from "@/editor/hooks/useLicense";
-import { MediaControls } from "./MediaControls";
+import { MediaControls, useMediaState } from "./MediaControls";
+import { ModeControls } from "./ModeControls";
 import {
   RECORDING_STATUS_KEY,
   readRecordingStatus,
@@ -47,6 +48,8 @@ export function Popup() {
   const elapsed = useElapsedSeconds(status.state === "recording" ? status.startedAt : null);
   const [error, setError] = useState<string | null>(null);
   const { license, loading: licenseLoading } = useLicense();
+  const media = useMediaState();
+  const instant = media.state?.settings.mode === "instant";
 
   const send = async (request: BackgroundRequest) => {
     const response = await sendBackgroundRequest(request);
@@ -66,7 +69,12 @@ export function Popup() {
         <span className="text-[13px] font-semibold">Screenix</span>
       </div>
 
-      <MediaControls disabled={status.state !== "idle"} />
+      {media.state && (
+        <>
+          <ModeControls settings={media.state.settings} disabled={status.state !== "idle"} onChange={media.update} />
+          <MediaControls state={media.state} disabled={status.state !== "idle"} onChange={media.update} />
+        </>
+      )}
 
       {status.state === "recording" ? (
         <button
@@ -90,7 +98,9 @@ export function Popup() {
       )}
 
       <p className="text-[11px] leading-snug text-muted-foreground">
-        Records the active tab and follows you when you switch tabs. Press Alt+Shift+R to start or stop.
+        {instant
+          ? "Your video is ready the moment you stop, smooth cursor included. Press Alt+Shift+R to start or stop."
+          : "Records the active tab and follows you when you switch tabs. Press Alt+Shift+R to start or stop."}
       </p>
       {error && <p className="text-[11px] text-destructive">{error}</p>}
 

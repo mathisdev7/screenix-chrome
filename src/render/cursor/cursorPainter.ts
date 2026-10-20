@@ -2,6 +2,8 @@ import type { CursorSprite } from "./theme";
 
 const MAX_BLUR_SAMPLES = 21;
 const BOUNDS_MARGIN = 2;
+const PIXEL_EXACT_SIZE_TOLERANCE = 0.02;
+const RESTING_MOTION = 0.01;
 
 type Context2D = OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D;
 
@@ -16,7 +18,8 @@ export interface CursorPaint {
   motionY: number;
   pixelScale: number;
   opacity: number;
-  shadowFilter: string;
+  shadowBlur: number;
+  shadowColor: string;
 }
 
 interface Motion {
@@ -49,6 +52,7 @@ export class CursorPainter {
     const hotspotY = sprite.hotspot[1] * width * scale;
     const pivotX = paint.x + sprite.hotspot[0] * width;
     const pivotY = paint.y + sprite.hotspot[1] * width;
+    if (this.paintPixelExact(ctx, paint, pivotX, pivotY)) return;
     const motion = clampMotion(paint, displayWidth, displayHeight);
     const angle = (paint.rotationDeg * Math.PI) / 180;
 
@@ -64,6 +68,7 @@ export class CursorPainter {
     const layer = this.layerContext;
     layer.setTransform(1, 0, 0, 1, 0, 0);
     layer.clearRect(0, 0, size, size);
+    layer.imageSmoothingQuality = "high";
     layer.translate(pivotX - left, pivotY - top);
     layer.rotate(angle);
     layer.globalCompositeOperation = motion.samples > 1 ? "lighter" : "source-over";
@@ -73,10 +78,30 @@ export class CursorPainter {
       layer.drawImage(sprite.image, -hotspotX - motion.x * progress, -hotspotY - motion.y * progress, displayWidth, displayHeight);
     }
 
-    ctx.save();
-    ctx.globalAlpha = opacity;
-    ctx.filter = paint.shadowFilter || "none";
-    ctx.drawImage(this.layer, left, top);
-    ctx.restore();
+    drawWithShadow(ctx, paint, this.layer, left, top);
   }
+
+  private paintPixelExact(ctx: Context2D, paint: CursorPaint, pivotX: number, pivotY: number): boolean {
+    const { sprite } = paint;
+    const transform = ctx.getTransform();
+    const imageWidth = sprite.image.width;
+    const resting = paint.rotationDeg === 0 && Math.hypot(paint.motionX, paint.motionY) < RESTING_MOTION;
+    const unscaled = transform.a === 1 && transform.d === 1 && transform.b === 0 && transform.c === 0;
+    if (!resting || !unscaled || Math.abs(imageWidth / (paint.width * paint.scale) - 1) > PIXEL_EXACT_SIZE_TOLERANCE) return false;
+    const x = Math.round(pivotX - sprite.hotspot[0] * imageWidth + transform.e) - transform.e;
+    const y = Math.round(pivotY - sprite.hotspot[1] * imageWidth + transform.f) - transform.f;
+    drawWithShadow(ctx, paint, sprite.image, x, y);
+    return true;
+  }
+}
+
+function drawWithShadow(ctx: Context2D, paint: CursorPaint, image: CanvasImageSource, x: number, y: number) {
+  ctx.save();
+  ctx.globalAlpha = paint.opacity;
+  if (paint.shadowBlur > 0) {
+    ctx.shadowColor = paint.shadowColor;
+    ctx.shadowBlur = paint.shadowBlur;
+  }
+  ctx.drawImage(image, x, y);
+  ctx.restore();
 }

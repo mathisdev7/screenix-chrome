@@ -1,3 +1,4 @@
+import type { EditorSettings } from "./settings";
 import type { AudioTrackInfo, CameraInfo, CapturedPointerSample, ProjectId } from "./types";
 
 export const POINTER_PORT_NAME = "screenix-pointer";
@@ -15,7 +16,8 @@ export type RecordingStatus =
 export type BackgroundRequest =
   | { type: "recording/start"; windowId: number }
   | { type: "recording/stop" }
-  | { type: "license/activate-key"; licenseKey: string };
+  | { type: "license/activate-key"; licenseKey: string }
+  | { type: "instant/progress"; projectId: ProjectId; progress: number };
 
 export type BackgroundResponse = { ok: true } | { ok: false; error: string; code?: string };
 
@@ -32,21 +34,28 @@ export async function sendBackgroundRequest(request: BackgroundRequest): Promise
 
 export const OFFSCREEN_TARGET = "screenix-recorder";
 
+export interface InstantRenderRequest {
+  settings: EditorSettings;
+  watermarked: boolean;
+}
+
 export interface MediaCaptureRequest {
   projectId: ProjectId;
   startedAt: number;
   microphoneId: string | null;
   cameraId: string | null;
   tabStreamId: string | null;
+  instant: InstantRenderRequest | null;
 }
 
 export type OffscreenRequest =
   | { target: typeof OFFSCREEN_TARGET; type: "media/start"; capture: MediaCaptureRequest }
-  | { target: typeof OFFSCREEN_TARGET; type: "media/stop" };
+  | { target: typeof OFFSCREEN_TARGET; type: "media/stop" }
+  | { target: typeof OFFSCREEN_TARGET; type: "instant/finish"; duration: number };
 
 export interface RecordedMedia {
   audioTracks: AudioTrackInfo[];
   camera: CameraInfo | null;
 }
 
-export type OffscreenResponse = ({ ok: true } & RecordedMedia) | { ok: false; error: string };
+export type OffscreenResponse = { ok: true; media?: RecordedMedia } | { ok: false; error: string };

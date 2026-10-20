@@ -71,6 +71,10 @@ function projectRange(projectId: ProjectId): IDBKeyRange {
   return IDBKeyRange.bound([projectId, -Infinity], [projectId, Infinity]);
 }
 
+function afterSeqRange(projectId: ProjectId, seq: number): IDBKeyRange {
+  return IDBKeyRange.bound([projectId, seq], [projectId, Infinity], true);
+}
+
 function projectAssetRange(projectId: ProjectId): IDBKeyRange {
   return IDBKeyRange.bound([projectId, ""], [projectId, "￿"]);
 }
@@ -109,6 +113,10 @@ export async function getFrames(projectId: ProjectId): Promise<FrameRecord[]> {
   return frames.sort((a, b) => a.t - b.t || a.seq - b.seq);
 }
 
+export async function getFramesAfter(projectId: ProjectId, seq: number): Promise<FrameRecord[]> {
+  return promisify((await store(STORES.frames, "readonly")).getAll(afterSeqRange(projectId, seq)));
+}
+
 export async function addPointerBatch(batch: PointerBatchRecord): Promise<void> {
   await promisify((await store(STORES.pointer, "readwrite")).put(batch));
 }
@@ -116,6 +124,10 @@ export async function addPointerBatch(batch: PointerBatchRecord): Promise<void> 
 export async function getPointerSamples(projectId: ProjectId): Promise<PointerSample[]> {
   const batches: PointerBatchRecord[] = await promisify((await store(STORES.pointer, "readonly")).getAll(projectRange(projectId)));
   return batches.flatMap((batch) => batch.samples).sort((a, b) => a.t - b.t);
+}
+
+export async function getPointerBatchesAfter(projectId: ProjectId, seq: number): Promise<PointerBatchRecord[]> {
+  return promisify((await store(STORES.pointer, "readonly")).getAll(afterSeqRange(projectId, seq)));
 }
 
 export async function putAsset(asset: ProjectAsset): Promise<void> {
@@ -143,6 +155,10 @@ export async function replaceCameraFrames(projectId: ProjectId, frames: FrameRec
 export async function getCameraFrames(projectId: ProjectId): Promise<FrameRecord[]> {
   const frames: FrameRecord[] = await promisify((await store(STORES.camera, "readonly")).getAll(projectRange(projectId)));
   return frames.sort((a, b) => a.t - b.t || a.seq - b.seq);
+}
+
+export async function getCameraFramesAfter(projectId: ProjectId, seq: number): Promise<FrameRecord[]> {
+  return promisify((await store(STORES.camera, "readonly")).getAll(afterSeqRange(projectId, seq)));
 }
 
 export async function addAudioChunk(chunk: AudioChunkRecord): Promise<void> {

@@ -1,3 +1,4 @@
+import type { LiveAudioChunk } from "@/instant/liveAudioMixer";
 import { addAudioChunk } from "@/shared/db";
 import type { AudioTrackInfo, AudioTrackKind, ProjectId } from "@/shared/types";
 
@@ -29,6 +30,7 @@ export class AudioTrackRecorder {
     private readonly track: MediaStreamTrack,
     private readonly channels: number,
     private readonly startedAt: number,
+    private readonly onChunk: (chunk: LiveAudioChunk) => void,
   ) {
     this.reader = new MediaStreamTrackProcessor<AudioData>({ track }).readable.getReader();
     this.finished = this.read();
@@ -43,11 +45,15 @@ export class AudioTrackRecorder {
     if (this.startEpoch === null || this.frameCount === 0) return null;
     return {
       kind: this.kind,
-      startT: Math.max(0, (this.startEpoch - this.startedAt) / 1000),
+      startT: this.startT(),
       sampleRate: this.sampleRate,
       channels: this.channels,
       frameCount: this.frameCount,
     };
+  }
+
+  private startT(): number {
+    return this.startEpoch === null ? 0 : Math.max(0, (this.startEpoch - this.startedAt) / 1000);
   }
 
   private async read() {
@@ -107,5 +113,6 @@ export class AudioTrackRecorder {
     this.chunk = null;
     this.chunkLength = 0;
     this.writes.push(addAudioChunk({ projectId: this.projectId, track: this.kind, seq: this.seq++, samples }));
+    this.onChunk({ kind: this.kind, startT: this.startT(), sampleRate: this.sampleRate, channels: this.channels, samples });
   }
 }

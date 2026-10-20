@@ -9,7 +9,7 @@ const PNG_SHAPES = new Set<CursorShape>(["default", "text", "hand", "crosshair"]
 type Hotspot = readonly [number, number];
 
 export interface CursorSprite {
-  image: OffscreenCanvas;
+  image: OffscreenCanvas | ImageBitmap;
   hotspot: Hotspot;
   aspect: number;
 }
@@ -22,15 +22,32 @@ export function cursorAssetUrl(theme: CursorThemeId, shape: CursorShape): string
   return `/cursors/themes/${theme}/${shape}.${extension}`;
 }
 
-async function loadSprite(theme: CursorThemeId, shape: CursorShape): Promise<CursorSprite> {
+async function loadSprite(theme: CursorThemeId, shape: CursorShape, width: number): Promise<CursorSprite> {
   const image = new Image();
   image.src = cursorAssetUrl(theme, shape);
   await image.decode();
   const aspect = image.naturalHeight / image.naturalWidth;
-  const canvas = new OffscreenCanvas(RASTER_WIDTH, Math.round(RASTER_WIDTH * aspect));
-  canvas.getContext("2d")?.drawImage(image, 0, 0, canvas.width, canvas.height);
+  const canvas = new OffscreenCanvas(width, Math.max(1, Math.round(width * aspect)));
+  const ctx = canvas.getContext("2d");
+  if (ctx) {
+    ctx.imageSmoothingQuality = "high";
+    ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+  }
   const [x, y] = HOTSPOTS[theme][shape];
   return { image: canvas, hotspot: [x, y], aspect };
+}
+
+async function loadSprites(theme: CursorThemeId, width: number): Promise<CursorSprites> {
+  const entries = await Promise.all(CURSOR_SHAPES.map(async (shape) => [shape, await loadSprite(theme, shape, width)] as const));
+  return Object.fromEntries(entries) as CursorSprites;
+}
+
+export async function rasterizeCursorSprites(theme: CursorThemeId, width: number): Promise<CursorSprites> {
+  const sprites = await loadSprites(theme, Math.max(1, Math.round(width)));
+  for (const sprite of Object.values(sprites)) {
+    if (sprite.image instanceof OffscreenCanvas) sprite.image = sprite.image.transferToImageBitmap();
+  }
+  return sprites;
 }
 
 const spritePromises = new Map<CursorThemeId, Promise<CursorSprites>>();
@@ -38,8 +55,7 @@ const spritePromises = new Map<CursorThemeId, Promise<CursorSprites>>();
 export function loadCursorSprites(theme: CursorThemeId): Promise<CursorSprites> {
   let promise = spritePromises.get(theme);
   if (!promise) {
-    promise = Promise.all(CURSOR_SHAPES.map(async (shape) => [shape, await loadSprite(theme, shape)] as const))
-      .then((entries) => Object.fromEntries(entries) as CursorSprites);
+    promise = loadSprites(theme, RASTER_WIDTH);
     spritePromises.set(theme, promise);
   }
   return promise;

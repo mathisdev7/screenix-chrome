@@ -30,7 +30,7 @@ import { useSceneInputs } from "../hooks/useSceneInputs";
 import { useTheme } from "../hooks/useTheme";
 import { useAudioPlayback, usePlaybackClock } from "../playback/usePlayback";
 
-function CenteredMessage({ children }: { children: string }) {
+export function CenteredMessage({ children }: { children: string }) {
   return <div className="grid h-full place-items-center text-[13px] text-muted-foreground">{children}</div>;
 }
 

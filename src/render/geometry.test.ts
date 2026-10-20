@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { createDefaultSettings, DEFAULT_BACKGROUND_SETTINGS } from "@/shared/settings";
-import { aspectValue, croppedSize, encoderSizeForShortSide, frameRectFor, outputAspect, uncroppedRect, videoRectFor } from "./geometry";
+import { alignedSizeWithin, aspectValue, croppedSize, encoderSizeForShortSide, frameRectFor, outputAspect, uncroppedRect, videoRectFor } from "./geometry";
 
 const source = { width: 2688, height: 1400 };
 
@@ -49,6 +49,20 @@ describe("geometry", () => {
     expect(taller.width).toBeCloseTo(1600);
     expect(taller.y).toBe(50);
     expect(taller.height).toBeGreaterThan(833);
+  });
+
+  test("aligned sizes never exceed the size they fit in", () => {
+    expect(alignedSizeWithin({ width: 1917, height: 1053 })).toEqual({ width: 1904, height: 1048 });
+    expect(alignedSizeWithin({ width: 1920, height: 1080 })).toEqual({ width: 1920, height: 1080 });
+  });
+
+  test("frames barely larger than the video are copied pixel for pixel", () => {
+    const settings = { ...DEFAULT_BACKGROUND_SETTINGS, enabled: false };
+    const video = { x: 0, y: 0, width: 1920, height: 1048 };
+    expect(frameRectFor(video, { width: 1920, height: 1053 }, settings)).toEqual({ x: 0, y: -2, width: 1920, height: 1053 });
+    const smaller = frameRectFor(video, { width: 1920, height: 1040 }, settings);
+    expect(smaller.height).toBeCloseTo(1048);
+    expect(smaller.width).toBeGreaterThan(1920);
   });
 
   test("very different frames are letterboxed instead of cropped", () => {

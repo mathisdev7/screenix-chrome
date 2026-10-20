@@ -22,7 +22,7 @@ export function IconButton({ title, onClick, disabled, children }: {
   );
 }
 
-function ProjectTitle({ name, onRename }: { name: string; onRename: (name: string) => void }) {
+export function ProjectTitle({ name, onRename }: { name: string; onRename: (name: string) => void }) {
   const [draft, setDraft] = useState<string | null>(null);
 
   if (draft !== null) {
