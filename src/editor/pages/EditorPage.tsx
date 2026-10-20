@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
+import { croppedSize } from "@/render/geometry";
 import { TimeMap } from "@/render/timeMap";
 import type { ProjectMedia } from "@/render/projectMedia";
 import { CUSTOM_WALLPAPER, CUSTOM_WALLPAPER_ASSET_KEY } from "@/render/wallpapers";
@@ -21,6 +22,7 @@ import { TopBar } from "../components/TopBar";
 import { useEditorSettings } from "../hooks/useEditorSettings";
 import { useEditorShortcuts } from "../hooks/useEditorShortcuts";
 import { useCameraImport } from "../hooks/useCameraImport";
+import { isFullCrop } from "../lib/cropRect";
 import { addZoomClip, autoZoomClips, zoomClipAt } from "../lib/zoomClips";
 import { openLicenseDialog, openLicensePricing, useLicense } from "../hooks/useLicense";
 import { useProjectMedia } from "../hooks/useProjectMedia";
@@ -57,6 +59,13 @@ function Editor({ media, onHome }: { media: ProjectMedia; onHome: () => void }) 
   const changeZoom = useCallback((next: ZoomClip[], coalesceKey?: string) => update({ zoom: next }, coalesceKey), [update]);
   const [sidebarTab, setSidebarTab] = useState<SidebarTab>("cursor");
   const [selectedZoomId, setSelectedZoomId] = useState<string | null>(null);
+  const [cropping, setCropping] = useState(false);
+  const stopCropping = useCallback(() => setCropping(false), []);
+
+  const toggleCropping = () => {
+    clock.pause();
+    setCropping((current) => !current);
+  };
   const hasClicks = useMemo(() => media.pointer.some((sample) => sample.kind === "down"), [media.pointer]);
 
   const selectZoom = useCallback((id: string | null) => {
@@ -104,6 +113,7 @@ function Editor({ media, onHome }: { media: ProjectMedia; onHome: () => void }) 
             clips={settings.zoom}
             selectedId={selectedZoomId}
             source={media.source}
+            crop={settings.crop}
             thumbnail={project.thumbnail}
             canAutoZoom={hasClicks}
             onAdd={addZoom}
@@ -125,7 +135,7 @@ function Editor({ media, onHome }: { media: ProjectMedia; onHome: () => void }) 
       case "audio":
         return <AudioPanel tracks={media.audio} audio={settings.audio} onChange={update} />;
       case "ratio":
-        return <RatioPanel aspectRatio={settings.aspectRatio} source={media.source} backgroundEnabled={settings.background.enabled} onChange={update} />;
+        return <RatioPanel aspectRatio={settings.aspectRatio} source={croppedSize(media.source, settings.crop)} backgroundEnabled={settings.background.enabled} onChange={update} />;
       case "background":
         return <BackgroundPanel background={settings.background} onChange={update} onUploadWallpaper={(file) => void uploadWallpaper(file)} />;
     }
@@ -153,7 +163,7 @@ function Editor({ media, onHome }: { media: ProjectMedia; onHome: () => void }) 
       <div className="grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)_auto] bg-[var(--editor-workspace-background)]">
         <div className="flex min-h-0">
           <section className="order-1 flex min-w-0 flex-1 flex-col px-3 pb-2 pt-3">
-            {inputs ? <PreviewPane media={media} inputs={inputs} clock={clock} onChange={update} /> : <CenteredMessage>Preparing preview…</CenteredMessage>}
+            {inputs ? <PreviewPane media={media} inputs={inputs} clock={clock} cropping={cropping} onCropDone={stopCropping} onChange={update} /> : <CenteredMessage>Preparing preview…</CenteredMessage>}
           </section>
           <Sidebar activeTab={sidebarTab} onTabChange={setSidebarTab} renderPanel={renderPanel} />
         </div>
@@ -169,6 +179,9 @@ function Editor({ media, onHome }: { media: ProjectMedia; onHome: () => void }) 
           onZoomChange={changeZoom}
           onSelectZoom={selectZoom}
           onAddZoom={addZoom}
+          cropping={cropping}
+          cropped={!isFullCrop(settings.crop)}
+          onCrop={toggleCropping}
         />
       </div>
       {shareDialog?.mode === "manage" && (

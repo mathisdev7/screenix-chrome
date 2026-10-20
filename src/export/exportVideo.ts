@@ -1,5 +1,5 @@
 import { Compositor, type SceneInputs } from "@/render/compositor";
-import { aspectValue, encoderSizeForShortSide, type Size } from "@/render/geometry";
+import { encoderSizeForShortSide, outputAspect, type Size } from "@/render/geometry";
 import type { ProjectMedia } from "@/render/projectMedia";
 import { TimeMap } from "@/render/timeMap";
 import { loadWatermark, paintWatermark } from "@/render/watermark";
@@ -23,7 +23,7 @@ export interface ExportOptions {
 }
 
 export function exportSize(settings: EditorSettings, source: Size, resolution: ExportResolution): Size {
-  const aspect = aspectValue(settings.aspectRatio, source);
+  const aspect = outputAspect(settings, source);
   const shortSide = resolution === "source" ? Math.min(source.width, source.height) : Number(resolution);
   return encoderSizeForShortSide(aspect, shortSide);
 }

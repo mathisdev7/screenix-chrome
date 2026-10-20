@@ -45,6 +45,14 @@ export interface CameraSettings {
   squircle: boolean;
   shadow: number;
   mirror: boolean;
+  glassBorder: number;
+}
+
+export interface CropRect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
 }
 
 export interface AudioSettings {
@@ -84,6 +92,7 @@ export interface EditorSettings {
   camera: CameraSettings;
   audio: AudioSettings;
   aspectRatio: AspectRatioId;
+  crop: CropRect;
   trim: TrimRange;
   speed: SpeedClip[];
   zoom: ZoomClip[];
@@ -128,7 +137,10 @@ export const DEFAULT_CAMERA_SETTINGS: CameraSettings = {
   squircle: true,
   shadow: 1,
   mirror: true,
+  glassBorder: 0,
 };
+
+export const FULL_CROP: CropRect = { x: 0, y: 0, width: 1, height: 1 };
 
 export const DEFAULT_AUDIO_SETTINGS: AudioSettings = {
   microphoneVolume: 1,
@@ -142,6 +154,7 @@ export function createDefaultSettings(): EditorSettings {
     camera: { ...DEFAULT_CAMERA_SETTINGS },
     audio: { ...DEFAULT_AUDIO_SETTINGS },
     aspectRatio: "source",
+    crop: { ...FULL_CROP },
     trim: { start: 0, end: null },
     speed: [],
     zoom: [],
@@ -156,6 +169,7 @@ export function withDefaults(settings: Partial<EditorSettings> | null | undefine
     camera: { ...defaults.camera, ...settings?.camera },
     audio: { ...defaults.audio, ...settings?.audio },
     aspectRatio: settings?.aspectRatio ?? defaults.aspectRatio,
+    crop: { ...defaults.crop, ...settings?.crop },
     trim: { ...defaults.trim, ...settings?.trim },
     speed: Array.isArray(settings?.speed) ? settings.speed : defaults.speed,
     zoom: Array.isArray(settings?.zoom) ? settings.zoom : defaults.zoom,
@@ -168,6 +182,7 @@ export interface SettingsPatch {
   camera?: Partial<CameraSettings>;
   audio?: Partial<AudioSettings>;
   aspectRatio?: AspectRatioId;
+  crop?: CropRect;
   trim?: Partial<TrimRange>;
   speed?: SpeedClip[];
   zoom?: ZoomClip[];
@@ -180,6 +195,7 @@ export function applySettingsPatch(settings: EditorSettings, patch: SettingsPatc
     camera: patch.camera ? { ...settings.camera, ...patch.camera } : settings.camera,
     audio: patch.audio ? { ...settings.audio, ...patch.audio } : settings.audio,
     aspectRatio: patch.aspectRatio ?? settings.aspectRatio,
+    crop: patch.crop ?? settings.crop,
     trim: patch.trim ? { ...settings.trim, ...patch.trim } : settings.trim,
     speed: patch.speed ?? settings.speed,
     zoom: patch.zoom ?? settings.zoom,

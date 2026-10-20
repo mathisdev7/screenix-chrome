@@ -1,4 +1,5 @@
-import { IconBolt, IconMinus, IconPlayerPauseFilled, IconPlayerPlayFilled, IconPlayerTrackNextFilled, IconPlayerTrackPrevFilled, IconPlus, IconZoomIn } from "@tabler/icons-react";
+import { IconBolt, IconCrop, IconMinus, IconPlayerPauseFilled, IconPlayerPlayFilled, IconPlayerTrackNextFilled, IconPlayerTrackPrevFilled, IconPlus, IconZoomIn } from "@tabler/icons-react";
+import clsx from "clsx";
 import type { ReactNode } from "react";
 import { formatClock } from "../../lib/format";
 
@@ -15,20 +16,24 @@ function ToolbarButton({ title, onClick, children }: { title: string; onClick: (
   );
 }
 
-function AddButton({ title, onClick, children }: { title: string; onClick: () => void; children: ReactNode }) {
+function AddButton({ title, active = false, onClick, children }: { title: string; active?: boolean; onClick: () => void; children: ReactNode }) {
   return (
     <button
       type="button"
       title={title}
+      aria-pressed={active}
       onClick={onClick}
-      className="flex h-7 items-center gap-1.5 rounded-lg border px-2.5 text-[11px] font-medium text-foreground hover:bg-accent/60"
+      className={clsx(
+        "flex h-7 items-center gap-1.5 rounded-lg border px-2.5 text-[11px] font-medium text-foreground hover:bg-accent/60",
+        active && "bg-accent/60",
+      )}
     >
       {children}
     </button>
   );
 }
 
-export function TimelineToolbar({ time, duration, playing, zoom, onToggle, onStep, onZoom, onAddSpeed, onAddZoom }: {
+export function TimelineToolbar({ time, duration, playing, zoom, onToggle, onStep, onZoom, onAddSpeed, onAddZoom, cropping, cropped, onCrop }: {
   time: number;
   duration: number;
   playing: boolean;
@@ -38,6 +43,9 @@ export function TimelineToolbar({ time, duration, playing, zoom, onToggle, onSte
   onZoom: (zoom: number) => void;
   onAddSpeed: () => void;
   onAddZoom: () => void;
+  cropping: boolean;
+  cropped: boolean;
+  onCrop: () => void;
 }) {
   return (
     <div className="grid grid-cols-[1fr_auto_1fr] items-center">
@@ -53,6 +61,10 @@ export function TimelineToolbar({ time, duration, playing, zoom, onToggle, onSte
           <AddButton title="Speed up or slow down part of the video, starting at the playhead" onClick={onAddSpeed}>
             <IconBolt size={13} />
             Add speed
+          </AddButton>
+          <AddButton title="Crop the recording" active={cropping} onClick={onCrop}>
+            <IconCrop size={13} />
+            {cropped ? "Edit crop" : "Crop"}
           </AddButton>
         </div>
       </div>

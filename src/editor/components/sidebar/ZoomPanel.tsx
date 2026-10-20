@@ -1,7 +1,7 @@
 import { IconSparkles, IconTrash, IconZoomIn } from "@tabler/icons-react";
 import { useRef, type PointerEvent as ReactPointerEvent } from "react";
-import type { Size } from "@/render/geometry";
-import type { ZoomClip, ZoomMode } from "@/shared/settings";
+import { croppedSize, type Size } from "@/render/geometry";
+import type { CropRect, ZoomClip, ZoomMode } from "@/shared/settings";
 import { MAX_ZOOM_SCALE, MAX_ZOOM_TRANSITION, MIN_ZOOM_SCALE, MIN_ZOOM_TRANSITION, formatScale, removeZoomClip, updateZoomClip } from "../../lib/zoomClips";
 import { thumbnailUrl } from "../../lib/thumbnailUrl";
 import { ActionButton, Section, SegmentedControl, SliderRow } from "../controls";
@@ -19,14 +19,20 @@ function formatPercent(value: number): string {
   return `${Math.round(value * 100)}%`;
 }
 
-function RegionPicker({ clip, source, thumbnail, onMove }: {
+function cropOffset(start: number, size: number): string {
+  return size < 1 ? `${(start / (1 - size)) * 100}%` : "0%";
+}
+
+function RegionPicker({ clip, source, crop, thumbnail, onMove }: {
   clip: ZoomClip;
   source: Size;
+  crop: CropRect;
   thumbnail: string | null;
   onMove: (centerX: number, centerY: number) => void;
 }) {
   const boxRef = useRef<HTMLDivElement>(null);
   const size = 100 / Math.max(1, clip.scale);
+  const visible = croppedSize(source, crop);
 
   const moveTo = (event: ReactPointerEvent) => {
     const rect = boxRef.current?.getBoundingClientRect();
@@ -37,8 +43,13 @@ function RegionPicker({ clip, source, thumbnail, onMove }: {
   return (
     <div
       ref={boxRef}
-      className="relative w-full cursor-crosshair touch-none overflow-hidden rounded-lg border bg-surface-1 bg-cover bg-center"
-      style={{ aspectRatio: `${source.width} / ${source.height}`, backgroundImage: thumbnail ? `url(${thumbnail})` : undefined }}
+      className="relative w-full cursor-crosshair touch-none overflow-hidden rounded-lg border bg-surface-1"
+      style={{
+        aspectRatio: `${visible.width} / ${visible.height}`,
+        backgroundImage: thumbnail ? `url(${thumbnail})` : undefined,
+        backgroundSize: `${100 / crop.width}% ${100 / crop.height}%`,
+        backgroundPosition: `${cropOffset(crop.x, crop.width)} ${cropOffset(crop.y, crop.height)}`,
+      }}
       onPointerDown={(event) => {
         event.currentTarget.setPointerCapture(event.pointerId);
         moveTo(event);
@@ -60,10 +71,11 @@ function RegionPicker({ clip, source, thumbnail, onMove }: {
   );
 }
 
-export function ZoomPanel({ clips, selectedId, source, thumbnail, canAutoZoom, onAdd, onAutoZoom, onSelect, onChange }: {
+export function ZoomPanel({ clips, selectedId, source, crop, thumbnail, canAutoZoom, onAdd, onAutoZoom, onSelect, onChange }: {
   clips: readonly ZoomClip[];
   selectedId: string | null;
   source: Size;
+  crop: CropRect;
   thumbnail: Blob | null;
   canAutoZoom: boolean;
   onAdd: () => void;
@@ -107,6 +119,7 @@ export function ZoomPanel({ clips, selectedId, source, thumbnail, canAutoZoom, o
               <RegionPicker
                 clip={clip}
                 source={source}
+                crop={crop}
                 thumbnail={thumbnail && thumbnailUrl(thumbnail)}
                 onMove={(centerX, centerY) => patch({ centerX, centerY }, "center")}
               />

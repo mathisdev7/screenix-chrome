@@ -1,4 +1,4 @@
-import type { AspectRatioId, BackgroundSettings } from "@/shared/settings";
+import type { AspectRatioId, BackgroundSettings, CropRect, EditorSettings } from "@/shared/settings";
 
 export interface Size {
   width: number;
@@ -31,6 +31,20 @@ export function aspectValue(id: AspectRatioId, source: Size): number {
   const ratio = ASPECT_RATIOS.find((option) => option.id === id)?.ratio;
   if (ratio) return ratio[0] / ratio[1];
   return source.height > 0 ? source.width / source.height : 16 / 9;
+}
+
+export function croppedSize(source: Size, crop: CropRect): Size {
+  return { width: source.width * crop.width, height: source.height * crop.height };
+}
+
+export function outputAspect(settings: EditorSettings, source: Size): number {
+  return aspectValue(settings.aspectRatio, croppedSize(source, settings.crop));
+}
+
+export function uncroppedRect(visible: Rect, crop: CropRect): Rect {
+  const width = visible.width / crop.width;
+  const height = visible.height / crop.height;
+  return { x: visible.x - crop.x * width, y: visible.y - crop.y * height, width, height };
 }
 
 const ENCODER_WIDTH_ALIGNMENT = 16;

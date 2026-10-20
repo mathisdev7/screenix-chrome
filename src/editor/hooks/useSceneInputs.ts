@@ -1,12 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { SceneInputs } from "@/render/compositor";
 import { loadCursorSprites, type CursorSprites } from "@/render/cursor/theme";
-import { buildCursorTimeline } from "@/render/cursor/timeline";
+import { buildCursorTimeline, type TimelinePoint } from "@/render/cursor/timeline";
 import type { ProjectMedia } from "@/render/projectMedia";
 import { loadWallpaper } from "@/render/wallpapers";
 import { ZoomTimeline } from "@/render/zoom/zoomTimeline";
 import type { CursorThemeId } from "@/shared/cursorThemes";
-import type { EditorSettings } from "@/shared/settings";
+import type { CropRect, EditorSettings } from "@/shared/settings";
+
+function toCropSpace(points: readonly TimelinePoint[], crop: CropRect): TimelinePoint[] {
+  return points.map(({ t, x, y }) => ({ t, x: (x - crop.x) / crop.width, y: (y - crop.y) / crop.height }));
+}
 
 function useCursorSprites(theme: CursorThemeId): CursorSprites | null {
   const [sprites, setSprites] = useState<CursorSprites | null>(null);
@@ -52,9 +56,10 @@ export function useSceneInputs(media: ProjectMedia, settings: EditorSettings) {
     [media.pointer, settings.cursor.speed],
   );
 
+  const { crop } = settings;
   const zoom = useMemo(
-    () => ZoomTimeline.build(settings.zoom, timeline.raw, media.project.duration),
-    [settings.zoom, timeline.raw, media.project.duration],
+    () => ZoomTimeline.build(settings.zoom, toCropSpace(timeline.raw, crop), media.project.duration),
+    [settings.zoom, timeline.raw, crop, media.project.duration],
   );
 
   const inputs = useMemo((): SceneInputs | null => (

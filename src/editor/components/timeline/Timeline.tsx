@@ -37,7 +37,7 @@ function isTyping(target: EventTarget | null): boolean {
   return target instanceof HTMLElement && (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName));
 }
 
-export function Timeline({ clock, duration, map, speed, zoomClips, selectedZoomId, onTrimChange, onSpeedChange, onZoomChange, onSelectZoom, onAddZoom }: {
+export function Timeline({ clock, duration, map, speed, zoomClips, selectedZoomId, onTrimChange, onSpeedChange, onZoomChange, onSelectZoom, onAddZoom, cropping, cropped, onCrop }: {
   clock: PlaybackClock;
   duration: number;
   map: TimeMap;
@@ -49,6 +49,9 @@ export function Timeline({ clock, duration, map, speed, zoomClips, selectedZoomI
   onZoomChange: (zoom: ZoomClip[], coalesceKey?: string) => void;
   onSelectZoom: (id: string | null) => void;
   onAddZoom: () => void;
+  cropping: boolean;
+  cropped: boolean;
+  onCrop: () => void;
 }) {
   const { time, playing } = usePlaybackSnapshot(clock);
   const trim = { start: map.sourceStart, end: map.sourceEnd };
@@ -146,6 +149,9 @@ export function Timeline({ clock, duration, map, speed, zoomClips, selectedZoomI
         zoom={zoom}
         onAddSpeed={addSpeed}
         onAddZoom={onAddZoom}
+        cropping={cropping}
+        cropped={cropped}
+        onCrop={onCrop}
         onToggle={() => clock.toggle()}
         onStep={(direction) => {
           clock.pause();

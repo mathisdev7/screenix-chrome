@@ -10,7 +10,7 @@ const CORNERS: readonly { x: number; y: number; label: string }[] = [
   { x: 1, y: 1, label: "Bottom right" },
 ];
 
-const STYLE_KEYS = ["size", "roundness", "squircle", "shadow", "mirror"] as const;
+const STYLE_KEYS = ["size", "roundness", "glassBorder", "squircle", "shadow", "mirror"] as const;
 
 function CameraVideoImport({ hasCamera, state, onImport }: {
   hasCamera: boolean;
@@ -92,6 +92,7 @@ export function CameraPanel({ hasCamera, camera, importState, onImportVideo, onC
           <Section title="Style" onReset={() => onChange({ camera: styleDefaults })} resetDisabled={styleIsDefault}>
             <SliderRow label="Size" value={camera.size} min={0.08} max={0.4} step={0.01} onChange={set("size")} format={(value) => `${Math.round(value * 100)}%`} />
             <SliderRow label="Roundness" value={camera.roundness} min={0} max={0.5} step={0.01} onChange={set("roundness")} format={(value) => `${Math.round(value * 200)}%`} />
+            <SliderRow label="Glass border" value={camera.glassBorder} min={0} max={1} step={0.05} onChange={set("glassBorder")} format={(value) => (value <= 0 ? "Off" : `${Math.round(value * 100)}%`)} />
             <SliderRow label="Shadow" value={camera.shadow} min={0} max={1} step={0.05} onChange={set("shadow")} format={(value) => (value <= 0 ? "Off" : `${Math.round(value * 100)}%`)} />
             <SwitchRow label="Squircle corners" checked={camera.squircle} onChange={(squircle) => onChange({ camera: { squircle } })} />
             <SwitchRow label="Mirror" checked={camera.mirror} onChange={(mirror) => onChange({ camera: { mirror } })} />

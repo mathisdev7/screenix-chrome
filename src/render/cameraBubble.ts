@@ -1,5 +1,5 @@
 import type { CameraSettings } from "@/shared/settings";
-import { coverRect, roundedShapePath, type Rect, type Size } from "./geometry";
+import { coverRect, insetRect, roundedShapePath, type Rect, type Size } from "./geometry";
 
 type Context2D = OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D;
 
@@ -36,12 +36,27 @@ export function cameraPositionAt(output: Size, settings: CameraSettings, left: n
   };
 }
 
-function bubblePath(rect: Rect, settings: CameraSettings): Path2D {
+const GLASS_BORDER_RATIO = 0.05;
+
+function bubblePath(rect: Rect, settings: CameraSettings, grow = 0): Path2D {
+  const outer = grow === 0 ? rect : insetRect(rect, -grow);
   const radius = settings.roundness * rect.width;
-  if (radius < rect.width / 2 - 0.5) return roundedShapePath(rect, radius, settings.squircle);
+  if (radius < rect.width / 2 - 0.5) return roundedShapePath(outer, radius + grow, settings.squircle);
   const path = new Path2D();
-  path.arc(rect.x + rect.width / 2, rect.y + rect.height / 2, rect.width / 2, 0, Math.PI * 2);
+  path.arc(outer.x + outer.width / 2, outer.y + outer.height / 2, outer.width / 2, 0, Math.PI * 2);
   return path;
+}
+
+function paintGlassBorder(ctx: Context2D, rect: Rect, settings: CameraSettings) {
+  if (settings.glassBorder <= 0) return;
+  const width = Math.max(1, rect.width * GLASS_BORDER_RATIO * settings.glassBorder);
+  const ring = new Path2D();
+  ring.addPath(bubblePath(rect, settings, width));
+  ring.addPath(bubblePath(rect, settings));
+  ctx.save();
+  ctx.fillStyle = `rgba(255,255,255,${0.12 + 0.2 * settings.glassBorder})`;
+  ctx.fill(ring, "evenodd");
+  ctx.restore();
 }
 
 export function paintCameraBubble(ctx: Context2D, output: Size, settings: CameraSettings, frame: ImageBitmap) {
@@ -67,4 +82,6 @@ export function paintCameraBubble(ctx: Context2D, output: Size, settings: Camera
   }
   ctx.drawImage(frame, image.x, image.y, image.width, image.height);
   ctx.restore();
+
+  paintGlassBorder(ctx, rect, settings);
 }

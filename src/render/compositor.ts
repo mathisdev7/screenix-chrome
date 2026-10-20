@@ -6,7 +6,7 @@ import { CursorPainter } from "./cursor/cursorPainter";
 import { cursorStateAt } from "./cursor/cursorState";
 import type { CursorSprites } from "./cursor/theme";
 import type { CursorTimeline } from "./cursor/timeline";
-import { frameRectFor, referenceScale, roundedShapePath, videoRectFor, type Rect, type Size } from "./geometry";
+import { croppedSize, frameRectFor, referenceScale, roundedShapePath, uncroppedRect, videoRectFor, type Rect, type Size } from "./geometry";
 import type { ZoomView } from "./zoom/zoomCamera";
 import type { ZoomTimeline } from "./zoom/zoomTimeline";
 
@@ -46,7 +46,7 @@ export class Compositor {
     const { settings, source } = this.inputs;
     const background = settings.background;
     const scale = referenceScale(output);
-    const video = videoRectFor(output, source, background);
+    const video = videoRectFor(output, croppedSize(source, settings.crop), background);
     const radius = background.enabled ? background.cornerRadius * scale : 0;
     const shape = roundedShapePath(video, radius, background.squircle);
 
@@ -68,7 +68,8 @@ export class Compositor {
     ctx.fillStyle = "#000";
     ctx.fillRect(video.x, video.y, video.width, video.height);
     if (!zoomScene) applyZoom(ctx, video, zoom);
-    const frameRect = frame ? frameRectFor(video, frame, background) : video;
+    const fullVideo = uncroppedRect(video, settings.crop);
+    const frameRect = frame ? frameRectFor(fullVideo, frame, background) : fullVideo;
     if (frame) ctx.drawImage(frame, frameRect.x, frameRect.y, frameRect.width, frameRect.height);
     ctx.restore();
 

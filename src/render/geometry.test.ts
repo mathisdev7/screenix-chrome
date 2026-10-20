@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { DEFAULT_BACKGROUND_SETTINGS } from "@/shared/settings";
-import { aspectValue, encoderSizeForShortSide, frameRectFor, videoRectFor } from "./geometry";
+import { createDefaultSettings, DEFAULT_BACKGROUND_SETTINGS } from "@/shared/settings";
+import { aspectValue, croppedSize, encoderSizeForShortSide, frameRectFor, outputAspect, uncroppedRect, videoRectFor } from "./geometry";
 
 const source = { width: 2688, height: 1400 };
 
@@ -8,6 +8,14 @@ describe("geometry", () => {
   test("source aspect follows the recording", () => {
     expect(aspectValue("source", source)).toBeCloseTo(2688 / 1400);
     expect(aspectValue("9:16", source)).toBeCloseTo(9 / 16);
+  });
+
+  test("a crop changes the source aspect and maps the full recording around the visible area", () => {
+    const crop = { x: 0.25, y: 0.1, width: 0.5, height: 0.8 };
+    expect(croppedSize(source, crop)).toEqual({ width: 1344, height: 1120 });
+    expect(outputAspect({ ...createDefaultSettings(), crop }, source)).toBeCloseTo(1344 / 1120);
+    expect(outputAspect({ ...createDefaultSettings(), crop, aspectRatio: "16:9" }, source)).toBeCloseTo(16 / 9);
+    expect(uncroppedRect({ x: 100, y: 50, width: 400, height: 320 }, crop)).toEqual({ x: -100, y: 10, width: 800, height: 400 });
   });
 
   test("export sizes fit the encoder block grid and keep standard heights", () => {

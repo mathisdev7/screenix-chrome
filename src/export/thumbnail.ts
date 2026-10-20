@@ -1,5 +1,5 @@
 import { Compositor, type SceneInputs } from "@/render/compositor";
-import { aspectValue, encoderSizeForShortSide } from "@/render/geometry";
+import { encoderSizeForShortSide, outputAspect } from "@/render/geometry";
 import type { ProjectMedia } from "@/render/projectMedia";
 import { trimmedRange } from "@/render/timeMap";
 
@@ -7,7 +7,7 @@ const THUMBNAIL_SHORT_SIDE = 720;
 const THUMBNAIL_QUALITY = 0.82;
 
 export async function renderThumbnail(media: ProjectMedia, inputs: SceneInputs): Promise<Blob | null> {
-  const size = encoderSizeForShortSide(aspectValue(inputs.settings.aspectRatio, media.source), THUMBNAIL_SHORT_SIDE);
+  const size = encoderSizeForShortSide(outputAspect(inputs.settings, media.source), THUMBNAIL_SHORT_SIDE);
   const canvas = new OffscreenCanvas(size.width, size.height);
   const ctx = canvas.getContext("2d", { alpha: false });
   if (!ctx) return null;
