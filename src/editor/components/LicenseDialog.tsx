@@ -102,7 +102,7 @@ function ActivateLicense() {
       <p className="text-center text-[12px] text-muted-foreground">
         No license yet?{" "}
         <button type="button" onClick={openLicensePricing} className="font-medium text-ring hover:text-ring/80">
-          Remove the watermark for $19
+          Remove the watermark for <s className="font-normal text-muted-foreground">$29</s> $19
         </button>
       </p>
     </form>
