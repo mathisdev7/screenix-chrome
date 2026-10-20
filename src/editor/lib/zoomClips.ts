@@ -12,11 +12,11 @@ export const MAX_ZOOM_TRANSITION = 2;
 const DEFAULT_ZOOM_CLIP_SECONDS = 1.5;
 const DEFAULT_ZOOM_IN = 1.15;
 const DEFAULT_ZOOM_OUT = 0.7;
-const CLICK_LEAD = 0.3;
-const CLICK_HOLD = 2.5;
-const MERGE_GAP = 2.5;
-const END_MARGIN = 0.8;
-const MIN_TAIL = 1;
+const CLICK_LEAD = 0.6;
+const CLICK_HOLD = 2.2;
+const MERGE_GAP = 1.8;
+const END_MARGIN = 0.6;
+const MIN_TAIL = 0.9;
 
 function newZoomClip(id: string, start: number, end: number): ZoomClip {
   return {

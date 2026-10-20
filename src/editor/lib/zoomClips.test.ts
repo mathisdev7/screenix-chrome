@@ -17,8 +17,8 @@ describe("zoom clips", () => {
     let id = 0;
     const clips = autoZoomClips([click(2), click(4), click(12), { ...click(13), kind: "up" }, click(19.5)], 20, () => `z${id++}`);
     expect(clips.map(({ start, end, mode }) => ({ start, end, mode }))).toEqual([
-      { start: 1.7, end: 6.5, mode: "auto" },
-      { start: 11.7, end: 14.5, mode: "auto" },
+      { start: 1.4, end: 6.2, mode: "auto" },
+      { start: 11.4, end: 14.2, mode: "auto" },
     ]);
   });
 
