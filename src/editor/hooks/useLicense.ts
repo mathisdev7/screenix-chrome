@@ -1,5 +1,5 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
-import { LICENSE_DASHBOARD_URL, LICENSE_PRICING_URL, onLicenseChanged, readLicense, refreshLicense, type License } from "@/shared/license";
+import { LICENSE_DASHBOARD_URL, LICENSE_PRICING_URL, onLicenseChanged, readLicense, refreshLicense, TERMS_URL, type License } from "@/shared/license";
 
 export interface LicenseState {
   license: License | null;
@@ -34,6 +34,10 @@ export function openLicensePricing() {
 
 export function openLicenseDashboard() {
   void chrome.tabs.create({ url: LICENSE_DASHBOARD_URL });
+}
+
+export function openTerms() {
+  void chrome.tabs.create({ url: TERMS_URL });
 }
 
 let licenseDialogOpen = false;

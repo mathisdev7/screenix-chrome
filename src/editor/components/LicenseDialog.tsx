@@ -2,7 +2,7 @@ import { Dialog } from "@base-ui/react/dialog";
 import { IconX } from "@tabler/icons-react";
 import { useState, type FormEvent } from "react";
 import { activateLicenseKey, deactivateLicense, LICENSE_ALREADY_ACTIVE, LicenseActivationError, type License } from "@/shared/license";
-import { closeLicenseDialog, openLicenseDashboard, openLicensePricing, useLicense, useLicenseDialogOpen } from "../hooks/useLicense";
+import { closeLicenseDialog, openLicenseDashboard, openLicensePricing, openTerms, useLicense, useLicenseDialogOpen } from "../hooks/useLicense";
 import { ActionButton } from "./controls";
 
 type Request = { status: "idle" } | { status: "pending" } | { status: "failed"; error: string; alreadyActive?: boolean };
@@ -125,6 +125,12 @@ export function LicenseDialog() {
             </Dialog.Close>
           </div>
           {license ? <ManageLicense license={license} /> : <ActivateLicense />}
+          <p className="border-t pt-3 text-center text-[11px] text-muted-foreground">
+            © {new Date().getFullYear()} Screenix. All rights reserved. ·{" "}
+            <button type="button" onClick={openTerms} className="hover:text-foreground">
+              Terms
+            </button>
+          </p>
         </Dialog.Popup>
       </Dialog.Portal>
     </Dialog.Root>

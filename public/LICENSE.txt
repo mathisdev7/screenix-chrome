@@ -1,0 +1,9 @@
+Screenix for Chrome
+Copyright © 2026 Screenix. All rights reserved.
+
+This software is proprietary. You may not copy, modify, distribute,
+sublicense, decompile or reverse engineer it, except as permitted by law.
+Use is subject to the Screenix Terms of Service: https://screenix.studio/terms
+
+Third-party assets in cursors/themes/ are under their own licenses,
+included next to them.

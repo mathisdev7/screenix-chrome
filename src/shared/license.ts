@@ -3,6 +3,7 @@ import { SCREENIX_ORIGIN } from "./screenixOrigin";
 
 export const LICENSE_PRICING_URL = `${SCREENIX_ORIGIN}/chrome/pricing`;
 export const LICENSE_DASHBOARD_URL = `${SCREENIX_ORIGIN}/dashboard/licenses`;
+export const TERMS_URL = `${SCREENIX_ORIGIN}/terms`;
 export const SHARES_DASHBOARD_URL = `${SCREENIX_ORIGIN}/dashboard/videos`;
 
 const STORAGE_KEY = "license";
