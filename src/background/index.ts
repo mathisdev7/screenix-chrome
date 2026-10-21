@@ -6,12 +6,13 @@ import {
   type RecordingStatus,
   type TrackerControlMessage,
 } from "@/shared/messages";
-import { readCaptureSettings } from "@/shared/captureSettings";
-import { COUNTDOWN_PORT_NAME } from "@/shared/countdown";
+import { readCaptureSettings, type CaptureSettings } from "@/shared/captureSettings";
+import { COUNTDOWN_PORT_NAME, type TabPoint } from "@/shared/countdown";
 import { readInstantStatus, writeInstantStatus } from "@/shared/instant";
 import { activateLicenseKey, LicenseActivationError, refreshLicense } from "@/shared/license";
 import type { ProjectId, ProjectRecord } from "@/shared/types";
 import { Countdown } from "./countdown";
+import { MediaCapture } from "./mediaCapture";
 import { RecordingSession } from "./recordingSession";
 
 const LICENSE_REFRESH_ALARM = "license-refresh";
@@ -29,13 +30,25 @@ async function setStatus(next: RecordingStatus) {
   if (recording) await chrome.action.setBadgeBackgroundColor({ color: "#e5484d" });
 }
 
-async function countDown(windowId: number, seconds: number): Promise<boolean> {
-  const running = new Countdown(seconds);
+async function countDown(windowId: number, capture: CaptureSettings): Promise<Countdown | null> {
+  const running = new Countdown(capture.countdown);
   countdown = running;
   try {
     await setStatus({ state: "countdown", endsAt: running.endsAt });
     const [tab] = await chrome.tabs.query({ active: true, windowId });
-    return await running.run(tab?.id);
+    const preparing = MediaCapture.prepare(capture).then(
+      () => null,
+      (error: unknown) => {
+        running.cancel();
+        return error instanceof Error ? error : new Error(String(error));
+      },
+    );
+    const completed = await running.run(tab?.id);
+    const failure = await preparing;
+    if (failure) throw failure;
+    if (completed) return running;
+    await MediaCapture.release();
+    return null;
   } finally {
     countdown = null;
   }
@@ -46,12 +59,17 @@ async function startRecording(windowId: number) {
   await setStatus({ state: "starting" });
   try {
     const capture = await readCaptureSettings();
-    if (capture.countdown > 0 && !(await countDown(windowId, capture.countdown))) {
-      await setStatus({ state: "idle" });
-      return;
+    let pointer: TabPoint | null = null;
+    if (capture.countdown > 0) {
+      const finished = await countDown(windowId, capture);
+      if (!finished) {
+        await setStatus({ state: "idle" });
+        return;
+      }
+      pointer = finished.pointer;
     }
     await setStatus({ state: "starting" });
-    const started = new RecordingSession(windowId, capture, () => void stopRecording());
+    const started = new RecordingSession(windowId, capture, pointer, () => void stopRecording());
     session = started;
     await started.start().catch(async (error: unknown) => {
       await started.abort();

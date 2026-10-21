@@ -1,5 +1,5 @@
 import type { LiveAudioChunk } from "@/instant/liveAudioMixer";
-import { OFFSCREEN_TARGET, type BackgroundRequest, type MediaCaptureRequest, type OffscreenRequest, type OffscreenResponse, type RecordedMedia } from "@/shared/messages";
+import { OFFSCREEN_TARGET, type BackgroundRequest, type CaptureDevices, type MediaCaptureRequest, type OffscreenRequest, type OffscreenResponse, type RecordedMedia } from "@/shared/messages";
 import type { AudioTrackInfo, AudioTrackKind } from "@/shared/types";
 import { AudioTrackRecorder } from "./audioTrackRecorder";
 import { CameraRecorder } from "./cameraRecorder";
@@ -12,7 +12,13 @@ interface ActiveCapture {
   instant: InstantRecorder | null;
 }
 
+interface OpenDevices extends CaptureDevices {
+  microphone: MediaStreamTrack | null;
+  camera: MediaStreamTrack | null;
+}
+
 let active: ActiveCapture | null = null;
+let prepared: OpenDevices | null = null;
 let finishing: InstantRecorder | null = null;
 
 function deviceConstraint(deviceId: string): ConstrainDOMString | undefined {
@@ -43,6 +49,52 @@ async function openTabAudio(streamId: string): Promise<{ track: MediaStreamTrack
   return { track: stream.getAudioTracks()[0], playback };
 }
 
+function closeDevices(devices: OpenDevices) {
+  devices.microphone?.stop();
+  devices.camera?.stop();
+}
+
+async function openDevices(devices: CaptureDevices): Promise<OpenDevices> {
+  const [microphone, camera] = await Promise.allSettled([
+    devices.microphoneId ? openMicrophone(devices.microphoneId) : null,
+    devices.cameraId ? openCamera(devices.cameraId) : null,
+  ]);
+  const open: OpenDevices = {
+    ...devices,
+    microphone: microphone.status === "fulfilled" ? microphone.value : null,
+    camera: camera.status === "fulfilled" ? camera.value : null,
+  };
+  const failure = [microphone, camera].find((result) => result.status === "rejected");
+  if (failure) {
+    closeDevices(open);
+    throw failure.reason;
+  }
+  return open;
+}
+
+function isLive(track: MediaStreamTrack | null): boolean {
+  return track === null || track.readyState === "live";
+}
+
+function takeDevices(devices: CaptureDevices): Promise<OpenDevices> {
+  const ready = prepared;
+  prepared = null;
+  const matches = ready?.microphoneId === devices.microphoneId && ready.cameraId === devices.cameraId;
+  if (ready && matches && isLive(ready.microphone) && isLive(ready.camera)) return Promise.resolve(ready);
+  if (ready) closeDevices(ready);
+  return openDevices(devices);
+}
+
+async function prepare(devices: CaptureDevices) {
+  release();
+  prepared = await openDevices(devices);
+}
+
+function release() {
+  if (prepared) closeDevices(prepared);
+  prepared = null;
+}
+
 function reportProgress(request: BackgroundRequest) {
   void chrome.runtime.sendMessage(request).catch(() => undefined);
 }
@@ -68,15 +120,14 @@ async function start(capture: MediaCaptureRequest): Promise<void> {
   let playback: AudioContext | null = null;
 
   try {
-    if (capture.microphoneId) {
-      audio.push(new AudioTrackRecorder(projectId, "microphone", await openMicrophone(capture.microphoneId), 1, startedAt, forward));
-    }
+    const devices = await takeDevices(capture);
+    if (devices.microphone) audio.push(new AudioTrackRecorder(projectId, "microphone", devices.microphone, 1, startedAt, forward));
+    if (devices.camera) camera = new CameraRecorder(projectId, devices.camera, startedAt);
     if (capture.tabStreamId) {
       const tab = await openTabAudio(capture.tabStreamId);
       playback = tab.playback;
       audio.push(new AudioTrackRecorder(projectId, "tab", tab.track, 2, startedAt, forward));
     }
-    if (capture.cameraId) camera = new CameraRecorder(projectId, await openCamera(capture.cameraId), startedAt);
   } catch (error) {
     instant?.cancel();
     await Promise.all([...audio.map((recorder) => recorder.stop()), camera?.stop()]);
@@ -116,6 +167,12 @@ function describeError(error: unknown): string {
 async function handle(request: OffscreenRequest): Promise<OffscreenResponse> {
   try {
     switch (request.type) {
+      case "media/prepare":
+        await prepare(request.devices);
+        return { ok: true };
+      case "media/release":
+        release();
+        return { ok: true };
       case "media/start":
         await start(request.capture);
         return { ok: true };

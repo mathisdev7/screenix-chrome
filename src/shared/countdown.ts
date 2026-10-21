@@ -6,4 +6,13 @@ export type CountdownSeconds = (typeof COUNTDOWN_SECONDS)[number];
 
 export type CountdownCommand = { type: "show"; endsAt: number } | { type: "hide" };
 
-export type CountdownReply = { type: "cancel" } | { type: "hidden" };
+export interface PagePoint {
+  x: number;
+  y: number;
+}
+
+export interface TabPoint extends PagePoint {
+  tabId: number;
+}
+
+export type CountdownReply = { type: "cancel" } | { type: "hidden"; pointer: PagePoint | null };

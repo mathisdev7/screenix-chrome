@@ -1,3 +1,4 @@
+import type { PagePoint } from "./countdown";
 import type { EditorSettings } from "./settings";
 import type { AudioTrackInfo, CameraInfo, CapturedPointerSample, ProjectId } from "./types";
 
@@ -5,7 +6,7 @@ export const POINTER_PORT_NAME = "screenix-pointer";
 
 export type PointerPortMessage = { type: "samples"; samples: CapturedPointerSample[] };
 
-export type TrackerControlMessage = { type: "start" } | { type: "stop" };
+export type TrackerControlMessage = { type: "start"; pointer: PagePoint | null } | { type: "stop" };
 
 export type RecordingStatus =
   | { state: "idle" }
@@ -41,16 +42,21 @@ export interface InstantRenderRequest {
   autoZoom: boolean;
 }
 
-export interface MediaCaptureRequest {
-  projectId: ProjectId;
-  startedAt: number;
+export interface CaptureDevices {
   microphoneId: string | null;
   cameraId: string | null;
+}
+
+export interface MediaCaptureRequest extends CaptureDevices {
+  projectId: ProjectId;
+  startedAt: number;
   tabStreamId: string | null;
   instant: InstantRenderRequest | null;
 }
 
 export type OffscreenRequest =
+  | { target: typeof OFFSCREEN_TARGET; type: "media/prepare"; devices: CaptureDevices }
+  | { target: typeof OFFSCREEN_TARGET; type: "media/release" }
   | { target: typeof OFFSCREEN_TARGET; type: "media/start"; capture: MediaCaptureRequest }
   | { target: typeof OFFSCREEN_TARGET; type: "media/stop" }
   | { target: typeof OFFSCREEN_TARGET; type: "instant/finish"; duration: number };

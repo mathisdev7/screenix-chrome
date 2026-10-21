@@ -1,3 +1,4 @@
+import type { PagePoint } from "@/shared/countdown";
 import { POINTER_PORT_NAME, type PointerPortMessage, type TrackerControlMessage } from "@/shared/messages";
 import type { CursorShape } from "@/shared/cursorShapes";
 import type { CapturedPointerSample, PointerEventKind } from "@/shared/types";
@@ -21,8 +22,9 @@ class PointerTracker {
 
   constructor(private readonly send: (samples: CapturedPointerSample[]) => void) {}
 
-  start() {
+  start(pointer: PagePoint | null) {
     if (this.flushTimer !== null) return;
+    if (pointer) this.pushResting(pointer);
     window.addEventListener("pointermove", this.onMove, { capture: true, passive: true });
     window.addEventListener("pointerdown", this.onButton, { capture: true, passive: true });
     window.addEventListener("pointerup", this.onButton, { capture: true, passive: true });
@@ -72,6 +74,13 @@ class PointerTracker {
     });
   }
 
+  private pushResting({ x, y }: PagePoint) {
+    const clientX = x * window.innerWidth;
+    const clientY = y * window.innerHeight;
+    this.shape = cursorShapeAt(document.elementFromPoint(clientX, clientY), clientX, clientY);
+    this.buffer.push({ epochMs: performance.timeOrigin + performance.now(), x, y, kind: "move", button: -1, shape: this.shape });
+  }
+
   private readonly onMove = (event: PointerEvent) => {
     const shape = this.currentShape(event);
     const coalesced = event.getCoalescedEvents();
@@ -98,7 +107,7 @@ export function connectPointerTracker() {
     port.postMessage(message);
   });
   port.onMessage.addListener((message: TrackerControlMessage) => {
-    if (message.type === "start") tracker.start();
+    if (message.type === "start") tracker.start(message.pointer);
     else tracker.stop();
   });
   port.onDisconnect.addListener(() => {

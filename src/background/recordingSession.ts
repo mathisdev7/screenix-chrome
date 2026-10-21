@@ -1,5 +1,6 @@
 import { autoZoomClips } from "@/editor/lib/zoomClips";
 import type { CaptureSettings } from "@/shared/captureSettings";
+import type { TabPoint } from "@/shared/countdown";
 import { addFrame, addPointerBatch, putProject } from "@/shared/db";
 import { INSTANT_HIDPI_LONG_SIDE, instantSettings } from "@/shared/instant";
 import { readLicense } from "@/shared/license";
@@ -53,6 +54,7 @@ export class RecordingSession {
   constructor(
     private readonly windowId: number,
     private readonly capture: CaptureSettings,
+    private startPointer: TabPoint | null,
     onCanceledByUser: () => void,
   ) {
     this.screencaster = new Screencaster(this.handleFrame, onCanceledByUser, this.isInstant ? INSTANT_HIDPI_LONG_SIDE : null);
@@ -103,7 +105,9 @@ export class RecordingSession {
     port.onDisconnect.addListener(() => {
       if (this.trackerPorts.get(tabId) === port) this.trackerPorts.delete(tabId);
     });
-    const start: TrackerControlMessage = { type: "start" };
+    const pointer = this.startPointer?.tabId === tabId ? { x: this.startPointer.x, y: this.startPointer.y } : null;
+    this.startPointer = null;
+    const start: TrackerControlMessage = { type: "start", pointer };
     port.postMessage(start);
   }
 

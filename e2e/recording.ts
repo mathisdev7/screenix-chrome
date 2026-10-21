@@ -12,6 +12,7 @@ const MAX_CAMERA_GAP_SECONDS = 0.15;
 const MAX_AUDIO_COVERAGE_ERROR_SECONDS = 0.3;
 const MAX_INSTANT_FINISH_SECONDS = 10;
 const MAX_INSTANT_DURATION_ERROR_SECONDS = 0.3;
+const MAX_START_SECONDS = 0.5;
 const INSTANT_TIMEOUT_MS = 60_000;
 const INSTANT_VIDEO_PATH = process.env.INSTANT_VIDEO_PATH;
 
@@ -23,6 +24,7 @@ interface RecordingReport {
   duration: number;
   screenFrames: number[];
   cameraFrames: number[];
+  firstPointer: number | null;
   audioTracks: { kind: string; startT: number; frameCount: number; sampleRate: number }[];
   instant: InstantReport | null;
 }
@@ -143,7 +145,9 @@ const READ_REPORT = `(async () => {
   const [project] = (await all("projects")).sort((a, b) => b.createdAt - a.createdAt);
   const range = IDBKeyRange.bound([project.id, -Infinity], [project.id, Infinity]);
   const times = async (store) => (await all(store, range)).map((frame) => frame.t).sort((a, b) => a - b);
-  return { duration: project.duration, screenFrames: await times("frames"), cameraFrames: await times("camera"), audioTracks: project.audioTracks };
+  const pointer = (await all("pointer", range)).flatMap((batch) => batch.samples.map((sample) => sample.t));
+  const firstPointer = pointer.length > 0 ? Math.min(...pointer) : null;
+  return { duration: project.duration, screenFrames: await times("frames"), cameraFrames: await times("camera"), firstPointer, audioTracks: project.audioTracks };
 })()`;
 
 async function run(mode: Mode): Promise<RecordingReport> {
@@ -181,9 +185,12 @@ async function run(mode: Mode): Promise<RecordingReport> {
       const [tab] = await chrome.tabs.query({ url: "${origin}/*" });
       await chrome.tabs.update(tab.id, { active: true });
       await chrome.storage.local.set({ captureSettings: { microphoneId: "default", cameraId: "default", tabAudio: false, mode: "${mode}", instantLook: "full", instantZoom: true } });
-      const response = await chrome.runtime.sendMessage({ type: "recording/start", windowId: tab.windowId });
-      if (!response.ok) throw new Error(response.error);
+      window.recordingStarted = chrome.runtime.sendMessage({ type: "recording/start", windowId: tab.windowId });
     })()`);
+    await sleep(500);
+    await movePointer(devtools, page, 1);
+    await devtools.evaluate(editor, `window.recordingStarted.then((response) => { if (!response.ok) throw new Error(response.error); })`);
+    await sleep(1000);
 
     for (const step of ["next", "route", "next"]) {
       await movePointer(devtools, page, 2);
@@ -212,9 +219,14 @@ function check(mode: Mode, report: RecordingReport): string[] {
   const microphone = report.audioTracks.find((track) => track.kind === "microphone");
   const audioSeconds = microphone ? microphone.frameCount / microphone.sampleRate : 0;
   const audioError = microphone ? Math.abs(report.duration - microphone.startT - audioSeconds) : Infinity;
-  console.log(`${mode}: recorded ${report.duration.toFixed(2)}s: ${report.screenFrames.length} screen frames (largest gap ${screenGap.toFixed(2)}s), ${report.cameraFrames.length} camera frames (largest gap ${cameraGap.toFixed(2)}s), ${audioSeconds.toFixed(2)}s of microphone audio`);
+  const firstScreen = report.screenFrames[0] ?? Infinity;
+  const firstPointer = report.firstPointer ?? Infinity;
+  console.log(`${mode}: cursor from ${firstPointer.toFixed(2)}s`);
+  console.log(`${mode}: recorded ${report.duration.toFixed(2)}s: ${report.screenFrames.length} screen frames from ${(report.screenFrames[0] ?? 0).toFixed(2)}s (largest gap ${screenGap.toFixed(2)}s), ${report.cameraFrames.length} camera frames from ${(report.cameraFrames[0] ?? 0).toFixed(2)}s (largest gap ${cameraGap.toFixed(2)}s), ${audioSeconds.toFixed(2)}s of microphone audio`);
   const failures = [
     report.screenFrames.length === 0 && "no screen frames were recorded",
+    firstScreen > MAX_START_SECONDS && `the screen starts at ${firstScreen.toFixed(2)}s`,
+    firstPointer > MAX_START_SECONDS && `the cursor starts at ${firstPointer.toFixed(2)}s, though the mouse moved during the countdown`,
     screenGap > MAX_SCREEN_GAP_SECONDS && `screen froze for ${screenGap.toFixed(2)}s`,
     report.cameraFrames.length === 0 && "no camera frames were recorded",
     cameraGap > MAX_CAMERA_GAP_SECONDS && `camera froze for ${cameraGap.toFixed(2)}s`,

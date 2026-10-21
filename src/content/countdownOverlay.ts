@@ -1,4 +1,4 @@
-import { COUNTDOWN_PORT_NAME, type CountdownCommand, type CountdownReply } from "@/shared/countdown";
+import { COUNTDOWN_PORT_NAME, type CountdownCommand, type CountdownReply, type PagePoint } from "@/shared/countdown";
 
 const TICK_MS = 100;
 
@@ -94,6 +94,21 @@ function afterRepaint(callback: () => void) {
 
 const port = chrome.runtime.connect({ name: COUNTDOWN_PORT_NAME });
 let hide: (() => void) | null = null;
+let pointer: PagePoint | null = null;
+
+const onPointerMove = (event: PointerEvent) => {
+  pointer = { x: event.clientX / window.innerWidth, y: event.clientY / window.innerHeight };
+};
+const onPointerOut = (event: PointerEvent) => {
+  if (event.relatedTarget === null) pointer = null;
+};
+window.addEventListener("pointermove", onPointerMove, { capture: true, passive: true });
+window.addEventListener("pointerout", onPointerOut, { capture: true, passive: true });
+
+function stopTrackingPointer() {
+  window.removeEventListener("pointermove", onPointerMove, { capture: true });
+  window.removeEventListener("pointerout", onPointerOut, { capture: true });
+}
 
 port.onMessage.addListener((command: CountdownCommand) => {
   if (command.type === "show") {
@@ -103,10 +118,14 @@ port.onMessage.addListener((command: CountdownCommand) => {
   }
   hide?.();
   hide = null;
+  stopTrackingPointer();
   afterRepaint(() => {
-    const reply: CountdownReply = { type: "hidden" };
+    const reply: CountdownReply = { type: "hidden", pointer };
     port.postMessage(reply);
   });
 });
 
-port.onDisconnect.addListener(() => hide?.());
+port.onDisconnect.addListener(() => {
+  hide?.();
+  stopTrackingPointer();
+});

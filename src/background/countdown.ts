@@ -1,4 +1,4 @@
-import type { CountdownCommand, CountdownReply } from "@/shared/countdown";
+import type { CountdownCommand, CountdownReply, TabPoint } from "@/shared/countdown";
 
 const OVERLAY_SCRIPT = "countdown-overlay.js";
 const TICK_MS = 100;
@@ -14,6 +14,7 @@ export class Countdown {
   private settle: (completed: boolean) => void = () => undefined;
   private shown = -1;
   private finished = false;
+  private lastPointer: TabPoint | null = null;
 
   constructor(seconds: number) {
     this.endsAt = Date.now() + seconds * 1000;
@@ -39,6 +40,10 @@ export class Countdown {
       this.hideOverlays(),
     ]);
     return completed;
+  }
+
+  get pointer(): TabPoint | null {
+    return this.lastPointer;
   }
 
   attach(port: chrome.runtime.Port) {
@@ -76,7 +81,10 @@ export class Countdown {
         resolve();
       };
       port.onMessage.addListener((reply: CountdownReply) => {
-        if (reply.type === "hidden") finish();
+        if (reply.type !== "hidden") return;
+        const tabId = port.sender?.tab?.id;
+        if (reply.pointer && tabId !== undefined) this.lastPointer = { ...reply.pointer, tabId };
+        finish();
       });
       port.onDisconnect.addListener(() => resolve());
       setTimeout(finish, HIDE_TIMEOUT_MS);

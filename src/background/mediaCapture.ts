@@ -27,8 +27,30 @@ async function tabAudioStreamId(settings: CaptureSettings, tabId: number | null)
   return chrome.tabCapture.getMediaStreamId({ targetTabId: tabId }).catch(() => null);
 }
 
+function needsRecorderDocument(settings: CaptureSettings): boolean {
+  return !!settings.microphoneId || !!settings.cameraId || settings.tabAudio || settings.mode === "instant";
+}
+
 export class MediaCapture {
   private constructor() {}
+
+  static async prepare(settings: CaptureSettings): Promise<void> {
+    if (!needsRecorderDocument(settings)) return;
+    await openRecorderDocument();
+    if (!settings.microphoneId && !settings.cameraId) return;
+    const devices = { microphoneId: settings.microphoneId, cameraId: settings.cameraId };
+    const response = await sendToRecorder({ target: OFFSCREEN_TARGET, type: "media/prepare", devices });
+    if (!response.ok) {
+      await closeRecorderDocument();
+      throw new Error(response.error);
+    }
+  }
+
+  static async release(): Promise<void> {
+    if (!(await chrome.offscreen.hasDocument())) return;
+    await sendToRecorder({ target: OFFSCREEN_TARGET, type: "media/release" }).catch(() => undefined);
+    await closeRecorderDocument();
+  }
 
   static async start(
     settings: CaptureSettings,
@@ -38,7 +60,10 @@ export class MediaCapture {
     instant: InstantRenderRequest | null,
   ): Promise<MediaCapture | null> {
     const tabStreamId = await tabAudioStreamId(settings, tabId);
-    if (!settings.microphoneId && !settings.cameraId && !tabStreamId && !instant) return null;
+    if (!settings.microphoneId && !settings.cameraId && !tabStreamId && !instant) {
+      await closeRecorderDocument();
+      return null;
+    }
 
     await openRecorderDocument();
     const response = await sendToRecorder({
