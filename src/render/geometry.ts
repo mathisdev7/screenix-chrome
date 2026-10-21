@@ -109,12 +109,12 @@ const FILL_ASPECT_TOLERANCE = 0.15;
 const PIXEL_EXACT_TOLERANCE = 0.01;
 
 function pixelExactCoverRect(container: Rect, content: Size): Rect {
-  const cover = coverRect(container, content);
+  const cover = { ...coverRect(container, content), y: container.y };
   const scale = cover.width / content.width;
   if (scale > 1 || scale < 1 - PIXEL_EXACT_TOLERANCE) return cover;
   return {
     x: Math.round(container.x + (container.width - content.width) / 2),
-    y: Math.round(container.y + (container.height - content.height) / 2),
+    y: Math.round(container.y),
     width: content.width,
     height: content.height,
   };

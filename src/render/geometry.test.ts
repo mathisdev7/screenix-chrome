@@ -51,6 +51,15 @@ describe("geometry", () => {
     expect(taller.height).toBeGreaterThan(833);
   });
 
+  test("without a background, frames taller than the video keep the page top in place", () => {
+    const settings = { ...DEFAULT_BACKGROUND_SETTINGS, enabled: false };
+    const video = { x: 0, y: 0, width: 2560, height: 1256 };
+    expect(frameRectFor(video, { width: 2560, height: 1350 }, settings)).toEqual({ x: 0, y: 0, width: 2560, height: 1350 });
+    const scaled = frameRectFor(video, { width: 1280, height: 675 }, settings);
+    expect(scaled.y).toBe(0);
+    expect(scaled.width).toBeCloseTo(2560);
+  });
+
   test("aligned sizes never exceed the size they fit in", () => {
     expect(alignedSizeWithin({ width: 1917, height: 1053 })).toEqual({ width: 1904, height: 1048 });
     expect(alignedSizeWithin({ width: 1920, height: 1080 })).toEqual({ width: 1920, height: 1080 });
@@ -59,7 +68,7 @@ describe("geometry", () => {
   test("frames barely larger than the video are copied pixel for pixel", () => {
     const settings = { ...DEFAULT_BACKGROUND_SETTINGS, enabled: false };
     const video = { x: 0, y: 0, width: 1920, height: 1048 };
-    expect(frameRectFor(video, { width: 1920, height: 1053 }, settings)).toEqual({ x: 0, y: -2, width: 1920, height: 1053 });
+    expect(frameRectFor(video, { width: 1920, height: 1053 }, settings)).toEqual({ x: 0, y: 0, width: 1920, height: 1053 });
     const smaller = frameRectFor(video, { width: 1920, height: 1040 }, settings);
     expect(smaller.height).toBeCloseTo(1048);
     expect(smaller.width).toBeGreaterThan(1920);
