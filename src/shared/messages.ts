@@ -10,6 +10,7 @@ export type TrackerControlMessage = { type: "start" } | { type: "stop" };
 export type RecordingStatus =
   | { state: "idle" }
   | { state: "starting" }
+  | { state: "countdown"; endsAt: number }
   | { state: "recording"; projectId: ProjectId; startedAt: number }
   | { state: "saving" };
 

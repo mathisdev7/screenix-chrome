@@ -6,6 +6,7 @@ const root = import.meta.dirname;
 const CONTENT_SCRIPTS: Record<string, string> = {
   "pointer-tracker": "src/content/pointerTracker.ts",
   "license-bridge": "src/content/licenseBridge.ts",
+  "countdown-overlay": "src/content/countdownOverlay.ts",
 };
 
 export default defineConfig(({ mode }) => {

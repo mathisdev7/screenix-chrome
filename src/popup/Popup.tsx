@@ -1,4 +1,4 @@
-import { IconLayoutGrid, IconPlayerRecordFilled, IconPlayerStopFilled } from "@tabler/icons-react";
+import { IconLayoutGrid, IconPlayerRecordFilled, IconPlayerStopFilled, IconX } from "@tabler/icons-react";
 import clsx from "clsx";
 import { useEffect, useState } from "react";
 import { openLicensePricing, useLicense } from "@/editor/hooks/useLicense";
@@ -29,14 +29,14 @@ function useRecordingStatus(): RecordingStatus {
   return status;
 }
 
-function useElapsedSeconds(startedAt: number | null): number {
+function useNow(active: boolean, intervalMs: number): number {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
-    if (startedAt === null) return;
-    const timer = window.setInterval(() => setNow(Date.now()), 500);
+    if (!active) return;
+    const timer = window.setInterval(() => setNow(Date.now()), intervalMs);
     return () => window.clearInterval(timer);
-  }, [startedAt]);
-  return startedAt === null ? 0 : Math.max(0, Math.floor((now - startedAt) / 1000));
+  }, [active, intervalMs]);
+  return now;
 }
 
 function formatElapsed(seconds: number): string {
@@ -45,7 +45,9 @@ function formatElapsed(seconds: number): string {
 
 export function Popup() {
   const status = useRecordingStatus();
-  const elapsed = useElapsedSeconds(status.state === "recording" ? status.startedAt : null);
+  const now = useNow(status.state === "recording" || status.state === "countdown", 100);
+  const elapsed = status.state === "recording" ? Math.max(0, Math.floor((now - status.startedAt) / 1000)) : 0;
+  const secondsLeft = status.state === "countdown" ? Math.max(1, Math.ceil((status.endsAt - now) / 1000)) : 0;
   const [error, setError] = useState<string | null>(null);
   const { license, loading: licenseLoading } = useLicense();
   const media = useMediaState();
@@ -84,6 +86,11 @@ export function Popup() {
         >
           <IconPlayerStopFilled size={14} />
           Stop recording · <span className="tabular-nums">{formatElapsed(elapsed)}</span>
+        </button>
+      ) : status.state === "countdown" ? (
+        <button type="button" onClick={() => void send({ type: "recording/stop" })} className="sidebar-action">
+          <IconX size={14} />
+          Cancel · starts in <span className="tabular-nums">{secondsLeft}</span>
         </button>
       ) : (
         <button

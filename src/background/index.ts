@@ -7,15 +7,18 @@ import {
   type TrackerControlMessage,
 } from "@/shared/messages";
 import { readCaptureSettings } from "@/shared/captureSettings";
+import { COUNTDOWN_PORT_NAME } from "@/shared/countdown";
 import { readInstantStatus, writeInstantStatus } from "@/shared/instant";
 import { activateLicenseKey, LicenseActivationError, refreshLicense } from "@/shared/license";
 import type { ProjectId, ProjectRecord } from "@/shared/types";
+import { Countdown } from "./countdown";
 import { RecordingSession } from "./recordingSession";
 
 const LICENSE_REFRESH_ALARM = "license-refresh";
 const LICENSE_REFRESH_PERIOD_MINUTES = 12 * 60;
 
 let session: RecordingSession | null = null;
+let countdown: Countdown | null = null;
 let status: RecordingStatus = { state: "idle" };
 
 async function setStatus(next: RecordingStatus) {
@@ -26,11 +29,29 @@ async function setStatus(next: RecordingStatus) {
   if (recording) await chrome.action.setBadgeBackgroundColor({ color: "#e5484d" });
 }
 
+async function countDown(windowId: number, seconds: number): Promise<boolean> {
+  const running = new Countdown(seconds);
+  countdown = running;
+  try {
+    await setStatus({ state: "countdown", endsAt: running.endsAt });
+    const [tab] = await chrome.tabs.query({ active: true, windowId });
+    return await running.run(tab?.id);
+  } finally {
+    countdown = null;
+  }
+}
+
 async function startRecording(windowId: number) {
   if (status.state !== "idle") return;
   await setStatus({ state: "starting" });
   try {
-    const started = new RecordingSession(windowId, await readCaptureSettings(), () => void stopRecording());
+    const capture = await readCaptureSettings();
+    if (capture.countdown > 0 && !(await countDown(windowId, capture.countdown))) {
+      await setStatus({ state: "idle" });
+      return;
+    }
+    await setStatus({ state: "starting" });
+    const started = new RecordingSession(windowId, capture, () => void stopRecording());
     session = started;
     await started.start().catch(async (error: unknown) => {
       await started.abort();
@@ -45,6 +66,7 @@ async function startRecording(windowId: number) {
 }
 
 async function stopRecording() {
+  countdown?.cancel();
   if (status.state !== "recording" || !session) return;
   const finished = session;
   session = null;
@@ -119,6 +141,11 @@ chrome.runtime.onMessage.addListener((request: BackgroundRequest, _sender, sendR
 });
 
 chrome.runtime.onConnect.addListener((port) => {
+  if (port.name === COUNTDOWN_PORT_NAME) {
+    if (countdown) countdown.attach(port);
+    else port.disconnect();
+    return;
+  }
   if (port.name !== POINTER_PORT_NAME) return;
   if (session) {
     session.addTrackerPort(port);
@@ -134,7 +161,7 @@ chrome.tabs.onUpdated.addListener((tabId, change) => session?.handleTabUpdated(t
 
 chrome.commands.onCommand.addListener(async (command) => {
   if (command !== "toggle-recording") return;
-  if (status.state === "recording") {
+  if (status.state === "recording" || status.state === "countdown") {
     await stopRecording();
     return;
   }

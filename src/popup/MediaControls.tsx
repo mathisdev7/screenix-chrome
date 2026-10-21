@@ -1,12 +1,18 @@
-import { IconMicrophone, IconVideo, IconVolume, type Icon } from "@tabler/icons-react";
+import { IconHourglassHigh, IconMicrophone, IconVideo, IconVolume, type Icon } from "@tabler/icons-react";
 import { useCallback, useEffect, useState } from "react";
 import { readCaptureSettings, writeCaptureSettings, type CaptureSettings } from "@/shared/captureSettings";
+import { COUNTDOWN_SECONDS, type CountdownSeconds } from "@/shared/countdown";
 import { hasMediaAccess, openMediaAccessPage, type MediaKind } from "@/shared/mediaAccess";
 import { SelectField, SwitchRow } from "@/editor/components/controls";
 
 const DEFAULT_DEVICE = "default";
 const NO_DEVICE = "off";
 const MAX_DEVICE_LABEL_LENGTH = 28;
+
+const COUNTDOWN_OPTIONS = COUNTDOWN_SECONDS.map((seconds) => ({
+  value: String(seconds),
+  label: seconds === 0 ? "No countdown" : `${seconds} second countdown`,
+}));
 
 function shortLabel(label: string): string {
   return label.length > MAX_DEVICE_LABEL_LENGTH ? `${label.slice(0, MAX_DEVICE_LABEL_LENGTH - 1).trimEnd()}…` : label;
@@ -126,6 +132,17 @@ export function MediaControls({ state, disabled, onChange }: {
         <div className="min-w-0 flex-1">
           <SwitchRow label="Tab audio" checked={state.settings.tabAudio} onChange={(tabAudio) => onChange({ tabAudio })} />
         </div>
+      </div>
+      <div className="flex items-center gap-2">
+        <IconHourglassHigh size={15} stroke={1.8} className="shrink-0 text-muted-foreground" aria-hidden />
+        <SelectField
+          label="Countdown"
+          value={String(state.settings.countdown)}
+          options={COUNTDOWN_OPTIONS}
+          disabled={disabled}
+          onChange={(value) => onChange({ countdown: Number(value) as CountdownSeconds })}
+          className="min-h-8 min-w-0 flex-1 px-2.5 text-[12px]"
+        />
       </div>
     </div>
   );
