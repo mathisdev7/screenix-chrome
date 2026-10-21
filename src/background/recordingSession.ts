@@ -1,9 +1,10 @@
+import { autoZoomClips } from "@/editor/lib/zoomClips";
 import type { CaptureSettings } from "@/shared/captureSettings";
 import { addFrame, addPointerBatch, putProject } from "@/shared/db";
 import { INSTANT_HIDPI_LONG_SIDE, instantSettings } from "@/shared/instant";
 import { readLicense } from "@/shared/license";
 import type { InstantRenderRequest, PointerPortMessage, TrackerControlMessage } from "@/shared/messages";
-import type { CapturedPointerSample, ProjectId, ProjectRecord, TabSegment } from "@/shared/types";
+import type { CapturedPointerSample, PointerSample, ProjectId, ProjectRecord, TabSegment } from "@/shared/types";
 import { MediaCapture } from "./mediaCapture";
 import { Screencaster, type ScreencastFrame } from "./screencaster";
 
@@ -40,6 +41,7 @@ export class RecordingSession {
   private readonly trackerPorts = new Map<number, chrome.runtime.Port>();
   private readonly pendingWrites = new Set<Promise<void>>();
   private readonly tabSegments: TabSegment[] = [];
+  private readonly presses: PointerSample[] = [];
   private activeTabId: number | null = null;
   private frameSeq = 0;
   private pointerSeq = 0;
@@ -63,7 +65,11 @@ export class RecordingSession {
   async start(): Promise<void> {
     const [activeTab] = await chrome.tabs.query({ active: true, windowId: this.windowId });
     if (this.isInstant) {
-      this.instant = { settings: instantSettings(this.capture.instantLook), watermarked: (await readLicense()) === null };
+      this.instant = {
+        settings: instantSettings(this.capture.instantLook),
+        watermarked: (await readLicense()) === null,
+        autoZoom: this.capture.instantZoom,
+      };
     }
     this.media = await MediaCapture.start(this.capture, this.projectId, this.startedAt, activeTab?.id ?? null, this.instant);
     await chrome.scripting.unregisterContentScripts({ ids: [TRACKER_REGISTRATION_ID] }).catch(() => undefined);
@@ -122,17 +128,18 @@ export class RecordingSession {
 
     const recordedMedia = await media;
     const preview = this.sampleFrame ? await createThumbnail(this.sampleFrame) : null;
+    const duration = this.secondsSinceStart(Date.now());
     const project: ProjectRecord = {
       id: this.projectId,
       name: defaultProjectName(new Date(this.startedAt)),
       createdAt: this.startedAt,
-      duration: this.secondsSinceStart(Date.now()),
+      duration,
       width: preview?.width ?? 0,
       height: preview?.height ?? 0,
       frameCount: this.frameSeq,
       tabSegments: this.tabSegments,
       thumbnail: preview?.thumbnail ?? null,
-      settings: this.instant?.settings ?? null,
+      settings: this.instant && { ...this.instant.settings, zoom: this.instant.autoZoom ? autoZoomClips(this.presses, duration, () => crypto.randomUUID()) : [] },
       audioTracks: recordedMedia?.audioTracks ?? [],
       camera: recordedMedia?.camera ?? null,
     };
@@ -184,10 +191,8 @@ export class RecordingSession {
 
   private handlePointerSamples(tabId: number, samples: CapturedPointerSample[]) {
     if (this.stopped || samples.length === 0 || tabId !== this.activeTabId) return;
-    this.track(addPointerBatch({
-      projectId: this.projectId,
-      seq: this.pointerSeq++,
-      samples: samples.map(({ epochMs, ...sample }) => ({ ...sample, t: this.secondsSinceStart(epochMs), tabId })),
-    }));
+    const timed = samples.map(({ epochMs, ...sample }) => ({ ...sample, t: this.secondsSinceStart(epochMs), tabId }));
+    if (this.instant?.autoZoom) this.presses.push(...timed.filter((sample) => sample.kind === "down"));
+    this.track(addPointerBatch({ projectId: this.projectId, seq: this.pointerSeq++, samples: timed }));
   }
 }

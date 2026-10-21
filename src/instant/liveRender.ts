@@ -15,6 +15,7 @@ import type { AudioTrackKind, ProjectId } from "@/shared/types";
 import { instantEncoderChoice } from "./instantEncoding";
 import { LiveAudioMixer, type LiveAudioChunk } from "./liveAudioMixer";
 import { LiveCursorTimeline, POINTER_LOOKAHEAD } from "./liveCursorTimeline";
+import { LIVE_ZOOM_SCALE, LiveZoom } from "./liveZoom";
 
 const FPS = 60;
 const POLL_INTERVAL_MS = 200;
@@ -37,6 +38,7 @@ export interface LiveRenderOptions {
   startedAt: number;
   settings: EditorSettings;
   watermarked: boolean;
+  autoZoom: boolean;
   audioTracks: readonly AudioTrackKind[];
 }
 
@@ -75,6 +77,7 @@ export class LiveRender {
   private readonly camera = new FrameSequence([]);
   private readonly cursor: LiveCursorTimeline;
   private readonly audio: LiveAudioMixer;
+  private readonly zoom: LiveZoom | null;
   private readonly lastSeq = { frames: -1, camera: -1, pointer: -1 };
   private output: Output | null = null;
   private nextFrame = 0;
@@ -92,6 +95,7 @@ export class LiveRender {
   ) {
     this.cursor = new LiveCursorTimeline(options.settings.cursor.speed);
     this.audio = new LiveAudioMixer(options.audioTracks, options.settings.audio);
+    this.zoom = options.autoZoom ? new LiveZoom(this.cursor.timeline.clicks, this.cursor.timeline.raw) : null;
   }
 
   addAudio(chunk: LiveAudioChunk) {
@@ -126,6 +130,7 @@ export class LiveRender {
 
   private async complete(duration: number): Promise<LiveRenderResult> {
     this.cursor.finish(duration);
+    this.zoom?.finish(duration);
     const frameCount = Math.max(1, Math.ceil(duration * FPS));
     const output = this.output ?? await this.createOutput();
     this.output = output;
@@ -181,8 +186,8 @@ export class LiveRender {
     const wallpaper = background.enabled && background.kind === "image"
       ? withTimeout(loadWallpaper(background.wallpaper, projectId).catch(() => null), WALLPAPER_TIMEOUT_MS, null)
       : null;
-    const [sprites, wallpaperImage, watermark, choice] = await Promise.all([
-      this.loadSprites((settings.cursor.size / 100) * frameWidth),
+    const [{ sprites, zoomSprites }, wallpaperImage, watermark, choice] = await Promise.all([
+      this.cursorSprites((settings.cursor.size / 100) * frameWidth),
       wallpaper,
       watermarked ? loadWatermark() : null,
       instantEncoderChoice(size, FPS),
@@ -192,11 +197,18 @@ export class LiveRender {
       settings,
       source,
       timeline: this.cursor.timeline,
-      zoom: ZoomTimeline.empty,
+      zoom: this.zoom ?? ZoomTimeline.empty,
       sprites,
+      zoomSprites,
       wallpaper: wallpaperImage,
     });
     return { size, canvas, ctx, compositor, encoder, watermark };
+  }
+
+  private async cursorSprites(width: number): Promise<{ sprites: CursorSprites; zoomSprites: CursorSprites | null }> {
+    const sprites = await this.loadSprites(width);
+    const zoomSprites = this.zoom ? await this.loadSprites(width * LIVE_ZOOM_SCALE) : null;
+    return { sprites, zoomSprites };
   }
 
   private async frameSize(index: number): Promise<Size> {
@@ -232,13 +244,16 @@ export class LiveRender {
   private frameKey(time: number, frameIndex: number, cameraIndex: number): string {
     const { cursor } = this.options.settings;
     const effect = cursor.clickEffect !== "none" && hasRecentClick(this.cursor.timeline.clicks, time) ? time : "";
+    const zoom = this.zoom?.at(time);
+    const view = zoom ? [zoom.scale.toFixed(4), Math.round(zoom.centerX * POSITION_STEPS), Math.round(zoom.centerY * POSITION_STEPS)] : [];
     const state = cursorStateAt(this.cursor.timeline, time, cursor);
-    if (!state) return [frameIndex, cameraIndex, effect].join("|");
+    if (!state) return [frameIndex, cameraIndex, effect, ...view].join("|");
     const position = [state.x, state.y, state.previousX, state.previousY].map((value) => Math.round(value * POSITION_STEPS));
     return [
       frameIndex,
       cameraIndex,
       effect,
+      ...view,
       ...position,
       state.shape,
       state.scale.toFixed(3),

@@ -37,6 +37,7 @@ export const OFFSCREEN_TARGET = "screenix-recorder";
 export interface InstantRenderRequest {
   settings: EditorSettings;
   watermarked: boolean;
+  autoZoom: boolean;
 }
 
 export interface MediaCaptureRequest {

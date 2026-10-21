@@ -7,8 +7,7 @@ import { cursorStateAt } from "./cursor/cursorState";
 import type { CursorSprites } from "./cursor/theme";
 import type { CursorTimeline } from "./cursor/timeline";
 import { croppedSize, frameRectFor, referenceScale, roundedShapePath, uncroppedRect, videoRectFor, type Rect, type Size } from "./geometry";
-import type { ZoomView } from "./zoom/zoomCamera";
-import type { ZoomTimeline } from "./zoom/zoomTimeline";
+import type { ZoomSource, ZoomView } from "./zoom/zoomCamera";
 
 type Context2D = OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D;
 
@@ -20,8 +19,9 @@ export interface SceneInputs {
   settings: EditorSettings;
   source: Size;
   timeline: CursorTimeline;
-  zoom: ZoomTimeline;
+  zoom: ZoomSource;
   sprites: CursorSprites;
+  zoomSprites?: CursorSprites | null;
   wallpaper: ImageBitmap | null;
 }
 
@@ -83,7 +83,8 @@ export class Compositor {
     if (!zoomScene) applyZoom(ctx, video, zoom);
     const { cursor } = settings;
     drawClickEffects(ctx, this.inputs.timeline.clicks, time, cursor.clickEffect, cursor.clickEffectIntensity, frameRect);
-    this.paintCursor(ctx, time, frameRect, frame?.width ?? source.width);
+    const sprites = zoom.scale > 1 && this.inputs.zoomSprites ? this.inputs.zoomSprites : this.inputs.sprites;
+    this.paintCursor(ctx, time, frameRect, frame?.width ?? source.width, sprites);
     ctx.restore();
     ctx.restore();
 
@@ -138,11 +139,11 @@ export class Compositor {
     ctx.restore();
   }
 
-  private paintCursor(ctx: Context2D, time: number, frameRect: Rect, sourceWidth: number) {
+  private paintCursor(ctx: Context2D, time: number, frameRect: Rect, sourceWidth: number, sprites: CursorSprites) {
     const settings = this.inputs.settings.cursor;
     const state = cursorStateAt(this.inputs.timeline, time, settings);
     if (!state) return;
-    const sprite = this.inputs.sprites[state.shape];
+    const sprite = sprites[state.shape];
     const width = (settings.size / 100) * frameRect.width;
     const hotspotX = sprite.hotspot[0] * width;
     const hotspotY = sprite.hotspot[1] * width;

@@ -8,6 +8,10 @@ export interface ZoomView {
   centerY: number;
 }
 
+export interface ZoomSource {
+  at(time: number): ZoomView;
+}
+
 interface Point {
   x: number;
   y: number;
@@ -42,7 +46,7 @@ export const IDENTITY_VIEW: ZoomView = { scale: 1, centerX: 0.5, centerY: 0.5 };
 const CONNECTED_GAP = 1.5;
 const CONNECTED_PAN = 1;
 const SPRING_SUBSTEP = 1 / 240;
-const DEADZONE_SPRING: Spring = { stiffness: 200, damping: 40, mass: 2.25, restDelta: 0.0002, restSpeed: 0.01 };
+export const DEADZONE_SPRING: Spring = { stiffness: 200, damping: 40, mass: 2.25, restDelta: 0.0002, restSpeed: 0.01 };
 
 function focusBounds(scale: number) {
   const margin = 1 / (2 * scale);
@@ -69,11 +73,11 @@ function softenAxis(value: number, scale: number): number {
   return clamped;
 }
 
-function soften(point: Point, scale: number): Point {
+export function soften(point: Point, scale: number): Point {
   return { x: softenAxis(point.x, scale), y: softenAxis(point.y, scale) };
 }
 
-function stepSpring(position: number, velocity: number, target: number, dt: number, spring: Spring): [number, number] {
+export function stepSpring(position: number, velocity: number, target: number, dt: number, spring: Spring): [number, number] {
   if (Math.abs(target - position) <= spring.restDelta && Math.abs(velocity) <= spring.restSpeed) return [target, 0];
   let p = position;
   let v = velocity;
@@ -118,7 +122,7 @@ export function connectedPairs(clips: readonly ZoomClip[]): ConnectedPair[] {
   return pairs;
 }
 
-function compose(zoomScale: number, focus: Point, strength: number): ZoomView {
+export function compose(zoomScale: number, focus: Point, strength: number): ZoomView {
   const scale = 1 + (zoomScale - 1) * strength;
   if (scale <= 1 + Number.EPSILON) return IDENTITY_VIEW;
   return { scale, centerX: lerp(0.5, focus.x, strength), centerY: lerp(0.5, focus.y, strength) };
