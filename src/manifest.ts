@@ -8,10 +8,10 @@ function licensePagePattern(): string {
 export function createManifest(): chrome.runtime.ManifestV3 {
   return {
     manifest_version: 3,
-    name: "Screenix for Chrome",
+    name: "Screenix – Screen Recorder with Auto Zoom",
     short_name: "Screenix",
-    version: "0.1.0",
-    description: "Screen record Chrome tabs with a buttery-smooth cursor, webcam and mic. Edit, export in 4K, or share a link.",
+    version: "0.2.0",
+    description: "Screen record Chrome tabs with auto zoom, a buttery-smooth cursor, webcam and mic. Edit, export in 4K, or share a link.",
     minimum_chrome_version: "118",
     icons: {
       16: "icons/icon-16.png",
