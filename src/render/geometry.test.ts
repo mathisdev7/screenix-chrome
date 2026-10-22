@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { createDefaultSettings, DEFAULT_BACKGROUND_SETTINGS } from "@/shared/settings";
-import { alignedSizeWithin, aspectValue, croppedSize, encoderSizeForShortSide, frameRectFor, outputAspect, uncroppedRect, videoRectFor } from "./geometry";
+import { alignedSizeWithin, aspectValue, croppedSize, encoderSizeForShortSide, frameRectFor, outputAspect, uncroppedRect, videoRectFor, windowRectFor } from "./geometry";
 
 const source = { width: 2688, height: 1400 };
 
@@ -31,6 +31,30 @@ describe("geometry", () => {
     const video = videoRectFor(output, source, DEFAULT_BACKGROUND_SETTINGS);
     expect(video.width).toBeCloseTo(1920 * 0.85);
     expect(video.x).toBeCloseTo((1920 - video.width) / 2);
+  });
+
+  test("a browser frame sits above the video and the window stays centred", () => {
+    const output = { width: 1920, height: 1080 };
+    const background = { ...DEFAULT_BACKGROUND_SETTINGS, browserFrame: "light" as const };
+    const video = videoRectFor(output, source, background);
+    const window = windowRectFor(video, background);
+    expect(video.width / video.height).toBeCloseTo(source.width / source.height);
+    expect(window.y + window.height).toBeCloseTo(video.y + video.height);
+    expect(window.height).toBeGreaterThan(video.height);
+    expect(window.y).toBeCloseTo((output.height - window.height) / 2);
+    expect(window.height).toBeLessThanOrEqual(output.height);
+  });
+
+  test("without a background a browser frame adds its height to the output", () => {
+    const settings = { ...createDefaultSettings(), background: { ...DEFAULT_BACKGROUND_SETTINGS, enabled: false, browserFrame: "dark" as const } };
+    const aspect = outputAspect(settings, source);
+    expect(aspect).toBeLessThan(source.width / source.height);
+    const output = { width: 2688, height: Math.round(2688 / aspect) };
+    const video = videoRectFor(output, source, settings.background);
+    expect(video.y).toBe(Math.round(2688 * 0.032));
+    expect(video.width).toBe(2688);
+    expect(video.height).toBeCloseTo(1400, 0);
+    expect(windowRectFor(video, settings.background)).toEqual({ x: 0, y: 0, ...output });
   });
 
   test("without a background the recording covers the frame", () => {

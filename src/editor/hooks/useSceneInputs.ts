@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { BrowserPages } from "@/render/browserBar";
 import type { SceneInputs } from "@/render/compositor";
 import { loadCursorSprites, type CursorSprites } from "@/render/cursor/theme";
 import { buildCursorTimeline, type TimelinePoint } from "@/render/cursor/timeline";
@@ -48,9 +49,24 @@ function useWallpaperImage(media: ProjectMedia, settings: EditorSettings) {
   return { image: kind === "image" ? image : null, reload };
 }
 
+function useBrowserPages(media: ProjectMedia): BrowserPages {
+  const [pages, setPages] = useState(BrowserPages.empty);
+  useEffect(() => {
+    let active = true;
+    void BrowserPages.load(media.project.pages ?? []).then((loaded) => {
+      if (active) setPages(loaded);
+    });
+    return () => {
+      active = false;
+    };
+  }, [media.project.pages]);
+  return pages;
+}
+
 export function useSceneInputs(media: ProjectMedia, settings: EditorSettings) {
   const sprites = useCursorSprites(settings.cursor.theme);
   const wallpaper = useWallpaperImage(media, settings);
+  const browser = useBrowserPages(media);
   const timeline = useMemo(
     () => buildCursorTimeline(media.pointer, settings.cursor.speed),
     [media.pointer, settings.cursor.speed],
@@ -63,8 +79,8 @@ export function useSceneInputs(media: ProjectMedia, settings: EditorSettings) {
   );
 
   const inputs = useMemo((): SceneInputs | null => (
-    sprites ? { settings, source: media.source, timeline, zoom, sprites, wallpaper: wallpaper.image } : null
-  ), [settings, media.source, timeline, zoom, sprites, wallpaper.image]);
+    sprites ? { settings, source: media.source, timeline, zoom, sprites, wallpaper: wallpaper.image, browser } : null
+  ), [settings, media.source, timeline, zoom, sprites, wallpaper.image, browser]);
 
   return { inputs, reloadWallpaper: wallpaper.reload };
 }

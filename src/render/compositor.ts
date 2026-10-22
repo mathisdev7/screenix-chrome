@@ -1,12 +1,13 @@
 import type { EditorSettings } from "@/shared/settings";
 import { BackgroundLayer } from "./background";
+import { BrowserBarPainter, type BrowserPages } from "./browserBar";
 import { paintCameraBubble } from "./cameraBubble";
 import { drawClickEffects } from "./cursor/clickEffects";
 import { CursorPainter } from "./cursor/cursorPainter";
 import { cursorStateAt } from "./cursor/cursorState";
 import type { CursorSprites } from "./cursor/theme";
 import type { CursorTimeline } from "./cursor/timeline";
-import { croppedSize, frameRectFor, referenceScale, roundedShapePath, uncroppedRect, videoRectFor, type Rect, type Size } from "./geometry";
+import { croppedSize, frameRectFor, referenceScale, roundedShapePath, uncroppedRect, videoRectFor, windowRectFor, type Rect, type Size } from "./geometry";
 import type { ZoomSource, ZoomView } from "./zoom/zoomCamera";
 
 type Context2D = OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D;
@@ -23,6 +24,7 @@ export interface SceneInputs {
   sprites: CursorSprites;
   zoomSprites?: CursorSprites | null;
   wallpaper: ImageBitmap | null;
+  browser?: BrowserPages;
 }
 
 function applyZoom(ctx: Context2D, video: Rect, { scale, centerX, centerY }: ZoomView) {
@@ -41,6 +43,7 @@ interface Backdrop {
 export class Compositor {
   private readonly cursorPainter = new CursorPainter();
   private readonly backgroundLayer = new BackgroundLayer();
+  private readonly browserBar = new BrowserBarPainter();
   private backdrop: Backdrop | null = null;
 
   constructor(private inputs: SceneInputs) {}
@@ -54,8 +57,9 @@ export class Compositor {
     const background = settings.background;
     const scale = referenceScale(output);
     const video = videoRectFor(output, croppedSize(source, settings.crop), background);
+    const windowRect = windowRectFor(video, background);
     const radius = background.enabled ? background.cornerRadius * scale : 0;
-    const shape = roundedShapePath(video, radius, background.squircle);
+    const shape = roundedShapePath(windowRect, radius, background.squircle);
 
     const zoom = this.inputs.zoom.at(time);
     const zoomScene = background.enabled && !background.zoomInsideFrame;
@@ -64,10 +68,17 @@ export class Compositor {
     ctx.clearRect(0, 0, output.width, output.height);
     ctx.save();
     if (zoomScene) applyZoom(ctx, video, zoom);
-    if (background.enabled) ctx.drawImage(this.backdropFor(output, video, radius, scale), 0, 0);
+    if (background.enabled) ctx.drawImage(this.backdropFor(output, windowRect, radius, scale), 0, 0);
 
     ctx.save();
     ctx.clip(shape);
+    if (windowRect.height > video.height && background.browserFrame !== "off") {
+      const bar = { ...windowRect, height: windowRect.height - video.height };
+      this.browserBar.paint(ctx, bar, this.inputs.browser?.at(time) ?? null, background.browserFrame);
+      ctx.beginPath();
+      ctx.rect(video.x, video.y, video.width, video.height);
+      ctx.clip();
+    }
     ctx.fillStyle = "#000";
     ctx.fillRect(video.x, video.y, video.width, video.height);
     if (!zoomScene) applyZoom(ctx, video, zoom);

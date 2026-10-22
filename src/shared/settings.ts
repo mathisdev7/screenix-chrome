@@ -4,6 +4,8 @@ export type ClickEffectStyle = "none" | "ripple" | "highlight" | "halo" | "burst
 
 export type BackgroundKind = "image" | "color" | "gradient";
 
+export type BrowserFrameStyle = "off" | "light" | "dark";
+
 export type AspectRatioId = "source" | "16:9" | "9:16" | "1:1" | "4:5" | "4:3";
 
 export interface CursorSettings {
@@ -34,6 +36,7 @@ export interface BackgroundSettings {
   glassBorderWidth: number;
   glassBorderOpacity: number;
   zoomInsideFrame: boolean;
+  browserFrame: BrowserFrameStyle;
 }
 
 export interface CameraSettings {
@@ -126,6 +129,7 @@ export const DEFAULT_BACKGROUND_SETTINGS: BackgroundSettings = {
   glassBorderWidth: 0,
   glassBorderOpacity: 0.18,
   zoomInsideFrame: false,
+  browserFrame: "off",
 };
 
 export const DEFAULT_CAMERA_SETTINGS: CameraSettings = {

@@ -96,6 +96,12 @@ Two Vite builds:
 - Settings: `crop` is `{ x, y, width, height }` normalized to the recording (`FULL_CROP` when uncropped). `croppedSize` replaces the source size for the video rect and every aspect (`outputAspect`: preview, export, thumbnail, Ratio panel); the compositor draws the whole frame at `uncroppedRect(video, crop)` clipped to the video, so cursor and click effects need no mapping. Zoom centres are in visible space, so `useSceneInputs` maps cursor points into crop space before building the zoom timeline, and the manual region picker shows only the cropped part of the thumbnail.
 - UI: Crop in the timeline toolbar (it reads "Edit crop" once cropped) switches the preview to the full recording without background, camera or zoom, with a drag box (`CropOverlay`, logic in `src/editor/lib/cropRect.ts`). Done, Enter or Escape leaves crop mode; Reset restores the full frame.
 
+## Browser frame
+
+- Window capture would bring back the system cursor, the debugger bar and a picker, so the browser UI is drawn instead of recorded. The session stores `project.pages` (`{ t, url, favIconUrl }`) whenever the followed tab's URL or favicon changes; a loading page keeps the last favicon of the same host.
+- `background.browserFrame` (`off` / `light` / `dark`) draws a macOS-style bar (traffic lights, back/forward, centred address with favicon, bold host and grey path) through `src/render/browserBar.ts`. The bar is 3.2% of the video width. With a background it sits inside the window shape above the video; without one it sits flush on top and the Source ratio grows by its height (`outputAspect`). Favicons are fetched when the editor opens. Crop mode hides it.
+- New Studio recordings with pages get the frame on first open, light or dark following the system theme. Older projects and Instant recordings stay off.
+
 ## Speed clips
 
 - Settings: `speed` is a list of `{ id, start, end, rate }` in recording seconds (rate 0.25–16×), like the Screenix desktop app's speed clips. Editing helpers (add at the playhead as 2 s at 2×, move, resize, rate, delete; no overlaps, kept inside the trim) live in `src/editor/lib/speedClips.ts`; the timeline shows them in a lane under the clip (`SpeedLane`, `SpeedControls`).

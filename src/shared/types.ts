@@ -39,6 +39,12 @@ export interface TabSegment {
   capturable: boolean;
 }
 
+export interface PageVisit {
+  t: number;
+  url: string;
+  favIconUrl: string | null;
+}
+
 export type AudioTrackKind = "microphone" | "tab";
 
 export interface AudioTrackInfo {
@@ -71,6 +77,7 @@ export interface ProjectRecord {
   height: number;
   frameCount: number;
   tabSegments: TabSegment[];
+  pages?: PageVisit[];
   thumbnail: Blob | null;
   settings: EditorSettings | null;
   audioTracks?: AudioTrackInfo[];

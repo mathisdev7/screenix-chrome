@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useReducer } from "react";
 import { putProject } from "@/shared/db";
-import { applySettingsPatch, withDefaults, type EditorSettings, type SettingsPatch, type ZoomClip } from "@/shared/settings";
+import { applySettingsPatch, withDefaults, type BrowserFrameStyle, type EditorSettings, type SettingsPatch, type ZoomClip } from "@/shared/settings";
 import type { ProjectRecord } from "@/shared/types";
 
 const COALESCE_WINDOW_MS = 1000;
@@ -57,9 +57,15 @@ export interface EditorSettingsController {
   canRedo: boolean;
 }
 
+function systemBrowserFrame(): BrowserFrameStyle {
+  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
+
 function initialSettings(project: ProjectRecord, initialZoom: () => ZoomClip[]): EditorSettings {
   const settings = withDefaults(project.settings);
-  return Array.isArray(project.settings?.zoom) ? settings : { ...settings, zoom: initialZoom() };
+  const zoom = Array.isArray(project.settings?.zoom) ? settings.zoom : initialZoom();
+  if (project.settings || !project.pages?.length) return { ...settings, zoom };
+  return { ...settings, zoom, background: { ...settings.background, browserFrame: systemBrowserFrame() } };
 }
 
 export function useEditorSettings(project: ProjectRecord, initialZoom: () => ZoomClip[]): EditorSettingsController {

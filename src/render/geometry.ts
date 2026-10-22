@@ -37,8 +37,20 @@ export function croppedSize(source: Size, crop: CropRect): Size {
   return { width: source.width * crop.width, height: source.height * crop.height };
 }
 
+const BROWSER_BAR_RATIO = 0.032;
+
+function browserBarRatio(background: BackgroundSettings): number {
+  return background.browserFrame === "off" ? 0 : BROWSER_BAR_RATIO;
+}
+
+function browserBarHeight(width: number, background: BackgroundSettings): number {
+  return Math.round(width * browserBarRatio(background));
+}
+
 export function outputAspect(settings: EditorSettings, source: Size): number {
-  return aspectValue(settings.aspectRatio, croppedSize(source, settings.crop));
+  const aspect = aspectValue(settings.aspectRatio, croppedSize(source, settings.crop));
+  if (settings.aspectRatio !== "source" || settings.background.enabled) return aspect;
+  return aspect / (1 + aspect * browserBarRatio(settings.background));
 }
 
 export function uncroppedRect(visible: Rect, crop: CropRect): Rect {
@@ -98,11 +110,20 @@ export function referenceScale(output: Size): number {
 }
 
 export function videoRectFor(output: Size, source: Size, background: BackgroundSettings): Rect {
-  const frame: Rect = { x: 0, y: 0, ...output };
-  if (!background.enabled) return frame;
+  if (!background.enabled) {
+    const bar = browserBarHeight(output.width, background);
+    return { x: 0, y: bar, width: output.width, height: output.height - bar };
+  }
   const sourceAspect = source.width / source.height;
-  const width = Math.min(background.screenScale * output.width, output.height * sourceAspect);
-  return centeredRect(frame, { width, height: width / sourceAspect }, 1);
+  const width = Math.min(background.screenScale * output.width, output.height / (1 / sourceAspect + browserBarRatio(background)));
+  const bar = browserBarHeight(width, background);
+  const outer = centeredRect({ x: 0, y: 0, ...output }, { width, height: width / sourceAspect + bar }, 1);
+  return { ...outer, y: outer.y + bar, height: width / sourceAspect };
+}
+
+export function windowRectFor(video: Rect, background: BackgroundSettings): Rect {
+  const bar = browserBarHeight(video.width, background);
+  return { ...video, y: video.y - bar, height: video.height + bar };
 }
 
 const FILL_ASPECT_TOLERANCE = 0.15;

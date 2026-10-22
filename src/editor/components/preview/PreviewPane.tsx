@@ -19,7 +19,7 @@ function uncroppedInputs(inputs: SceneInputs): SceneInputs {
       ...settings,
       crop: FULL_CROP,
       aspectRatio: "source",
-      background: { ...settings.background, enabled: false },
+      background: { ...settings.background, enabled: false, browserFrame: "off" },
       camera: { ...settings.camera, enabled: false },
     },
   };

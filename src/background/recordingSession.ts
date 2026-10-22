@@ -5,7 +5,7 @@ import { addFrame, addPointerBatch, putProject } from "@/shared/db";
 import { INSTANT_HIDPI_LONG_SIDE, instantSettings } from "@/shared/instant";
 import { readLicense } from "@/shared/license";
 import type { InstantRenderRequest, PointerPortMessage, TrackerControlMessage } from "@/shared/messages";
-import type { CapturedPointerSample, PointerSample, ProjectId, ProjectRecord, TabSegment } from "@/shared/types";
+import type { CapturedPointerSample, PageVisit, PointerSample, ProjectId, ProjectRecord, TabSegment } from "@/shared/types";
 import { MediaCapture } from "./mediaCapture";
 import { Screencaster, type ScreencastFrame } from "./screencaster";
 
@@ -42,6 +42,7 @@ export class RecordingSession {
   private readonly trackerPorts = new Map<number, chrome.runtime.Port>();
   private readonly pendingWrites = new Set<Promise<void>>();
   private readonly tabSegments: TabSegment[] = [];
+  private readonly pages: PageVisit[] = [];
   private readonly presses: PointerSample[] = [];
   private activeTabId: number | null = null;
   private frameSeq = 0;
@@ -90,7 +91,9 @@ export class RecordingSession {
   }
 
   handleTabUpdated(tabId: number, change: chrome.tabs.OnUpdatedInfo) {
-    if (tabId === this.activeTabId && change.status === "complete") void this.follow(tabId);
+    if (tabId !== this.activeTabId) return;
+    if (change.status === "complete") void this.follow(tabId);
+    else if (change.url || change.favIconUrl) void this.recordPage(tabId);
   }
 
   addTrackerPort(port: chrome.runtime.Port) {
@@ -142,6 +145,7 @@ export class RecordingSession {
       height: preview?.height ?? 0,
       frameCount: this.frameSeq,
       tabSegments: this.tabSegments,
+      pages: this.pages,
       thumbnail: preview?.thumbnail ?? null,
       settings: this.instant && { ...this.instant.settings, zoom: this.instant.autoZoom ? autoZoomClips(this.presses, duration, () => crypto.randomUUID()) : [] },
       audioTracks: recordedMedia?.audioTracks ?? [],
@@ -169,6 +173,17 @@ export class RecordingSession {
     const t = this.secondsSinceStart(Date.now());
     const last = this.tabSegments.at(-1);
     if (last?.tabId !== tabId || last.capturable !== capturable) this.tabSegments.push({ t, tabId, capturable });
+    await this.recordPage(tabId);
+  }
+
+  private async recordPage(tabId: number) {
+    const tab = await chrome.tabs.get(tabId).catch(() => null);
+    if (!tab?.url || this.stopped || this.activeTabId !== tabId) return;
+    const last = this.pages.at(-1);
+    const sameSite = last !== undefined && URL.parse(last.url)?.host === URL.parse(tab.url)?.host;
+    const favIconUrl = tab.favIconUrl ?? (sameSite ? last.favIconUrl : null);
+    if (last?.url === tab.url && last.favIconUrl === favIconUrl) return;
+    this.pages.push({ t: this.secondsSinceStart(Date.now()), url: tab.url, favIconUrl });
   }
 
   private secondsSinceStart(epochMs: number): number {

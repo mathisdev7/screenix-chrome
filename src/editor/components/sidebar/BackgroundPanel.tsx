@@ -1,4 +1,4 @@
-import { DEFAULT_BACKGROUND_SETTINGS, type BackgroundKind, type BackgroundSettings, type SettingsPatch } from "@/shared/settings";
+import { DEFAULT_BACKGROUND_SETTINGS, type BackgroundKind, type BackgroundSettings, type BrowserFrameStyle, type SettingsPatch } from "@/shared/settings";
 import { ColorField, SegmentedControl, Section, SliderRow, SwitchRow } from "../controls";
 import { WallpaperGrid } from "./WallpaperGrid";
 
@@ -7,6 +7,12 @@ const BACKGROUND_KINDS = [
   { value: "color", label: "Color" },
   { value: "gradient", label: "Gradient" },
 ] as const satisfies readonly { value: BackgroundKind; label: string }[];
+
+const BROWSER_FRAMES = [
+  { value: "off", label: "Off" },
+  { value: "light", label: "Light" },
+  { value: "dark", label: "Dark" },
+] as const satisfies readonly { value: BrowserFrameStyle; label: string }[];
 
 const FRAME_KEYS = ["squircle", "screenScale", "cornerRadius", "shadowBlur", "glassBorderWidth", "glassBorderOpacity"] as const;
 
@@ -29,6 +35,10 @@ export function BackgroundPanel({ background, onChange, onUploadWallpaper }: {
       {background.enabled && (
         <SwitchRow label="Zoom inside frame" checked={background.zoomInsideFrame} onChange={(zoomInsideFrame) => onChange({ background: { zoomInsideFrame } })} />
       )}
+
+      <Section title="Browser frame">
+        <SegmentedControl label="Browser frame" options={BROWSER_FRAMES} value={background.browserFrame} onChange={(browserFrame) => onChange({ background: { browserFrame } })} />
+      </Section>
 
       {background.enabled && (
         <>
