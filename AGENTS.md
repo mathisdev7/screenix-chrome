@@ -76,6 +76,7 @@ Two Vite builds:
 
 - Free use is unlimited. Exports without a license get the Screenix watermark (`public/watermark.png`, copied from `src-tauri/ressources/watermark.png`): height 12% of the output, centered, 5% above the bottom, drawn on the whole frame in `src/render/watermark.ts`. The preview never shows it, same as the desktop app.
 - Licenses are Screenix license keys (`SCRX-…`), one key per browser. Chrome keys use `license_key.tier = "chrome"` ($19 lifetime each, any quantity). A desktop yearly/lifetime/team key can also activate one browser. Chrome keys are rejected by the desktop activation and verification routes.
+- Store listing: https://chromewebstore.google.com/detail/screenix-for-chrome/daodleelbenbcdllpfecilgeldnncemp (`CHROME_WEB_STORE_URL` in the website's `lib/chrome-extension.ts`, used by every "Add to Chrome" button and by the success page when the extension isn't installed).
 - Buying: "Remove watermark" opens `${SCREENIX_ORIGIN}/chrome/pricing` (pricing page with a quantity picker; `/chrome` is reserved for the landing page). Checkout (`plan: "chrome"`) needs no login and pre-fills the email when signed in. The Stripe webhook reuses the lifetime branch: it finds or creates the account by email, creates the keys and emails them, without changing the account's desktop tier. Stripe returns to `/purchase/success`, which shows the keys with an "Activate in this browser" button.
 - Activating: the success-page button talks to `src/content/licenseBridge.ts` (injected on `/purchase/success*`) via `window.postMessage`. The extension's "Have a license key?" dialog (`src/editor/components/LicenseDialog.tsx`, also reachable from the popup via `editor.html?license=1`; when licensed it shows the account, key ending, "Manage licenses" and "Deactivate in this browser") takes a pasted key. Both call `POST /api/chrome/license/activate` with `{ licenseKey, installId }`. `installId` is a random ID kept in `chrome.storage.local`; the key is bound to it in `license_key.chrome_install_id`.
 - Tokens are RS256 JWTs signed with the existing Screenix key (`iss: api.screenix.app`, `aud: screenix-chrome`, `type: chrome-license`, `sub` = license key id, `installId`, 30 days). The extension verifies them with the bundled public key (`src/shared/licensePublicKey.ts`) and its own install ID, refreshes every 12 hours through `POST /api/chrome/license/refresh` (alarm), drops them on 401/403 and allows 7 days offline past expiry.
@@ -157,7 +158,5 @@ Working and checked by the user: tab recording with tab following, cursor re-ren
 
 Open:
 - "Share to Screenix" hosted links.
-- Chrome Web Store listing and review (debugger permission justification).
 - Initial git commit; nothing is committed yet.
-- Chrome Web Store link on the success page when the extension isn't installed.
 - The macOS Tahoe and macOS Dark cursor artwork is GPL-3.0; replace it with owned art before selling the closed extension.
