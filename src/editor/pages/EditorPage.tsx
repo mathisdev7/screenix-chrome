@@ -12,9 +12,9 @@ import { ShareDialog } from "../components/ShareDialog";
 import { PreviewPane } from "../components/preview/PreviewPane";
 import { AudioPanel } from "../components/sidebar/AudioPanel";
 import { BackgroundPanel } from "../components/sidebar/BackgroundPanel";
+import { BrowserPanel } from "../components/sidebar/BrowserPanel";
 import { CameraPanel } from "../components/sidebar/CameraPanel";
 import { CursorPanel } from "../components/sidebar/CursorPanel";
-import { PagesPanel } from "../components/sidebar/PagesPanel";
 import { RatioPanel } from "../components/sidebar/RatioPanel";
 import { ZoomPanel } from "../components/sidebar/ZoomPanel";
 import { Sidebar, type SidebarTab } from "../components/sidebar/Sidebar";
@@ -139,16 +139,14 @@ function Editor({ media, onHome }: { media: ProjectMedia; onHome: () => void }) 
         return <RatioPanel aspectRatio={settings.aspectRatio} source={croppedSize(media.source, settings.crop)} backgroundEnabled={settings.background.enabled} onChange={update} />;
       case "background":
         return <BackgroundPanel background={settings.background} onChange={update} onUploadWallpaper={(file) => void uploadWallpaper(file)} />;
-      case "pages":
+      case "browser":
         return (
-          <PagesPanel
+          <BrowserPanel
+            background={settings.background}
             visits={project.pages ?? []}
             urls={settings.pageUrls}
-            frameOn={settings.background.browserFrame !== "off"}
-            showUrlDetails={settings.background.showUrlDetails}
             onChange={update}
             onSeek={(time) => clock.seek(time)}
-            onOpenBackground={() => setSidebarTab("background")}
           />
         );
     }

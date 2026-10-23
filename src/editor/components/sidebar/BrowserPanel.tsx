@@ -1,46 +1,63 @@
 import { IconArrowBackUp } from "@tabler/icons-react";
 import { useMemo } from "react";
 import { displayUrl } from "@/render/browserBar";
-import type { SettingsPatch } from "@/shared/settings";
+import type { BackgroundSettings, BrowserFrameStyle, SettingsPatch } from "@/shared/settings";
 import type { PageVisit } from "@/shared/types";
 import { formatClock } from "../../lib/format";
 import { editPageUrl, recordedPages } from "../../lib/pageUrls";
-import { ActionButton, Section } from "../controls";
+import { SegmentedControl, Section, SwitchRow } from "../controls";
+
+const BROWSER_FRAMES = [
+  { value: "off", label: "Off" },
+  { value: "light", label: "Light" },
+  { value: "dark", label: "Dark" },
+] as const satisfies readonly { value: BrowserFrameStyle; label: string }[];
 
 function shownAs(url: string, showDetails: boolean): string {
   const { host, path } = displayUrl(url, showDetails);
   return `${host}${path}`;
 }
 
-export function PagesPanel({ visits, urls, frameOn, showUrlDetails, onChange, onSeek, onOpenBackground }: {
+function FrameSection({ background, onChange }: {
+  background: BackgroundSettings;
+  onChange: (patch: SettingsPatch) => void;
+}) {
+  return (
+    <Section title="Browser frame">
+      <SegmentedControl label="Browser frame" options={BROWSER_FRAMES} value={background.browserFrame} onChange={(browserFrame) => onChange({ background: { browserFrame } })} />
+      {background.browserFrame !== "off" && (
+        <>
+          <SwitchRow label="Zoom with the page" checked={background.zoomBrowserFrame} onChange={(zoomBrowserFrame) => onChange({ background: { zoomBrowserFrame } })} />
+          <SwitchRow label="Show query and hash" checked={background.showUrlDetails} onChange={(showUrlDetails) => onChange({ background: { showUrlDetails } })} />
+        </>
+      )}
+    </Section>
+  );
+}
+
+export function BrowserPanel({ background, visits, urls, onChange, onSeek }: {
+  background: BackgroundSettings;
   visits: readonly PageVisit[];
   urls: Readonly<Record<string, string>>;
-  frameOn: boolean;
-  showUrlDetails: boolean;
   onChange: (patch: SettingsPatch, coalesceKey?: string) => void;
   onSeek: (time: number) => void;
-  onOpenBackground: () => void;
 }) {
   const pages = useMemo(() => recordedPages(visits), [visits]);
 
   if (pages.length === 0) {
     return (
-      <Section title="Pages">
-        <p className="text-[11px] leading-snug text-muted-foreground">This recording has no page addresses.</p>
-      </Section>
+      <div className="space-y-5">
+        <FrameSection background={background} onChange={onChange} />
+        <Section title="Pages">
+          <p className="text-[11px] leading-snug text-muted-foreground">This recording has no page addresses.</p>
+        </Section>
+      </div>
     );
   }
 
   return (
     <div className="space-y-5">
-      {!frameOn && (
-        <Section title="Browser frame">
-          <p className="text-[11px] leading-snug text-muted-foreground">
-            The browser frame is off, so these addresses aren't shown in the video.
-          </p>
-          <ActionButton className="h-8 w-full" onClick={onOpenBackground}>Open Background</ActionButton>
-        </Section>
-      )}
+      <FrameSection background={background} onChange={onChange} />
 
       <Section title="Pages" onReset={() => onChange({ pageUrls: {} })} resetDisabled={Object.keys(urls).length === 0}>
         <p className="text-[11px] leading-snug text-muted-foreground">
@@ -48,7 +65,7 @@ export function PagesPanel({ visits, urls, frameOn, showUrlDetails, onChange, on
         </p>
         {pages.map(({ url: recorded, times }) => {
           const url = urls[recorded] ?? recorded;
-          const shown = shownAs(url, showUrlDetails);
+          const shown = shownAs(url, background.showUrlDetails);
           return (
             <div key={recorded} className="space-y-1.5 rounded-lg border p-2.5">
               <div className="flex items-center gap-1">
