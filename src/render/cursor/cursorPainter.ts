@@ -1,4 +1,4 @@
-import type { CursorSprite } from "./theme";
+import { spriteImageAt, type CursorSprite } from "./theme";
 
 const MAX_BLUR_SAMPLES = 21;
 const BOUNDS_MARGIN = 2;
@@ -28,14 +28,14 @@ interface Motion {
   samples: number;
 }
 
-function clampMotion(paint: CursorPaint, displayWidth: number, displayHeight: number): Motion {
-  const length = Math.hypot(paint.motionX, paint.motionY);
-  const uvLength = Math.hypot(paint.motionX / displayWidth, paint.motionY / displayHeight);
-  const factor = Math.min(1, (480 * paint.pixelScale) / Math.max(length, 1e-6), 4 / Math.max(uvLength, 1e-6));
-  const blurred = length * factor >= 0.5 * paint.pixelScale && uvLength * factor >= 0.005;
+function clampMotion(motionX: number, motionY: number, pixelScale: number, displayWidth: number, displayHeight: number): Motion {
+  const length = Math.hypot(motionX, motionY);
+  const uvLength = Math.hypot(motionX / displayWidth, motionY / displayHeight);
+  const factor = Math.min(1, (480 * pixelScale) / Math.max(length, 1e-6), 4 / Math.max(uvLength, 1e-6));
+  const blurred = length * factor >= 0.5 * pixelScale && uvLength * factor >= 0.005;
   if (!blurred) return { x: 0, y: 0, samples: 1 };
   const samples = Math.min(MAX_BLUR_SAMPLES, Math.max(2, Math.ceil(length * factor) + 1));
-  return { x: paint.motionX * factor, y: paint.motionY * factor, samples };
+  return { x: motionX * factor, y: motionY * factor, samples };
 }
 
 export class CursorPainter {
@@ -46,19 +46,29 @@ export class CursorPainter {
     const { sprite, scale, opacity, width } = paint;
     if (opacity <= 0 || width <= 0 || scale <= 0 || !this.layerContext) return;
 
-    const displayWidth = width * scale;
+    const transform = ctx.getTransform();
+    const deviceScale = Math.hypot(transform.a, transform.b);
+    const displayWidth = width * scale * deviceScale;
     const displayHeight = displayWidth * sprite.aspect;
-    const hotspotX = sprite.hotspot[0] * width * scale;
-    const hotspotY = sprite.hotspot[1] * width * scale;
-    const pivotX = paint.x + sprite.hotspot[0] * width;
-    const pivotY = paint.y + sprite.hotspot[1] * width;
-    if (this.paintPixelExact(ctx, paint, pivotX, pivotY)) return;
-    const motion = clampMotion(paint, displayWidth, displayHeight);
-    const angle = (paint.rotationDeg * Math.PI) / 180;
+    const image = spriteImageAt(sprite, displayWidth);
+    const hotspotX = sprite.hotspot[0] * displayWidth;
+    const hotspotY = sprite.hotspot[1] * displayWidth;
+    const pivot = transform.transformPoint({ x: paint.x + sprite.hotspot[0] * width, y: paint.y + sprite.hotspot[1] * width });
+    const shadowBlur = paint.shadowBlur * deviceScale;
 
+    const resting = paint.rotationDeg === 0 && Math.hypot(paint.motionX, paint.motionY) < RESTING_MOTION;
+    if (resting && Math.abs(image.width / displayWidth - 1) <= PIXEL_EXACT_SIZE_TOLERANCE) {
+      const x = Math.round(pivot.x - sprite.hotspot[0] * image.width);
+      const y = Math.round(pivot.y - sprite.hotspot[1] * image.width);
+      drawWithShadow(ctx, paint, shadowBlur, image, x, y);
+      return;
+    }
+
+    const motion = clampMotion(paint.motionX * deviceScale, paint.motionY * deviceScale, paint.pixelScale * deviceScale, displayWidth, displayHeight);
+    const angle = (paint.rotationDeg * Math.PI) / 180;
     const reach = Math.hypot(displayWidth, displayHeight) + Math.hypot(motion.x, motion.y) + BOUNDS_MARGIN;
-    const left = Math.floor(pivotX - reach);
-    const top = Math.floor(pivotY - reach);
+    const left = Math.floor(pivot.x - reach);
+    const top = Math.floor(pivot.y - reach);
     const size = Math.ceil(reach * 2);
     if (this.layer.width !== size || this.layer.height !== size) {
       this.layer.width = size;
@@ -69,38 +79,26 @@ export class CursorPainter {
     layer.setTransform(1, 0, 0, 1, 0, 0);
     layer.clearRect(0, 0, size, size);
     layer.imageSmoothingQuality = "high";
-    layer.translate(pivotX - left, pivotY - top);
+    layer.translate(pivot.x - left, pivot.y - top);
     layer.rotate(angle);
     layer.globalCompositeOperation = motion.samples > 1 ? "lighter" : "source-over";
     layer.globalAlpha = 1 / motion.samples;
     for (let sample = 0; sample < motion.samples; sample++) {
       const progress = motion.samples > 1 ? sample / (motion.samples - 1) : 0;
-      layer.drawImage(sprite.image, -hotspotX - motion.x * progress, -hotspotY - motion.y * progress, displayWidth, displayHeight);
+      layer.drawImage(image, -hotspotX - motion.x * progress, -hotspotY - motion.y * progress, displayWidth, displayHeight);
     }
 
-    drawWithShadow(ctx, paint, this.layer, left, top);
-  }
-
-  private paintPixelExact(ctx: Context2D, paint: CursorPaint, pivotX: number, pivotY: number): boolean {
-    const { sprite } = paint;
-    const transform = ctx.getTransform();
-    const imageWidth = sprite.image.width;
-    const resting = paint.rotationDeg === 0 && Math.hypot(paint.motionX, paint.motionY) < RESTING_MOTION;
-    const unscaled = transform.a === 1 && transform.d === 1 && transform.b === 0 && transform.c === 0;
-    if (!resting || !unscaled || Math.abs(imageWidth / (paint.width * paint.scale) - 1) > PIXEL_EXACT_SIZE_TOLERANCE) return false;
-    const x = Math.round(pivotX - sprite.hotspot[0] * imageWidth + transform.e) - transform.e;
-    const y = Math.round(pivotY - sprite.hotspot[1] * imageWidth + transform.f) - transform.f;
-    drawWithShadow(ctx, paint, sprite.image, x, y);
-    return true;
+    drawWithShadow(ctx, paint, shadowBlur, this.layer, left, top);
   }
 }
 
-function drawWithShadow(ctx: Context2D, paint: CursorPaint, image: CanvasImageSource, x: number, y: number) {
+function drawWithShadow(ctx: Context2D, paint: CursorPaint, shadowBlur: number, image: CanvasImageSource, x: number, y: number) {
   ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.globalAlpha = paint.opacity;
-  if (paint.shadowBlur > 0) {
+  if (shadowBlur > 0) {
     ctx.shadowColor = paint.shadowColor;
-    ctx.shadowBlur = paint.shadowBlur;
+    ctx.shadowBlur = shadowBlur;
   }
   ctx.drawImage(image, x, y);
   ctx.restore();

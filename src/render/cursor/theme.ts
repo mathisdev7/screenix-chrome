@@ -3,6 +3,7 @@ import type { CursorThemeId } from "@/shared/cursorThemes";
 import HOTSPOTS from "./themeHotspots.json";
 
 const RASTER_WIDTH = 256;
+const MAX_RASTERS_PER_SPRITE = 6;
 
 const PNG_SHAPES = new Set<CursorShape>(["default", "text", "hand", "crosshair"]);
 
@@ -12,6 +13,7 @@ export interface CursorSprite {
   image: OffscreenCanvas | ImageBitmap;
   hotspot: Hotspot;
   aspect: number;
+  source?: HTMLImageElement;
 }
 
 export type CursorSprites = Record<CursorShape, CursorSprite>;
@@ -22,19 +24,23 @@ export function cursorAssetUrl(theme: CursorThemeId, shape: CursorShape): string
   return `/cursors/themes/${theme}/${shape}.${extension}`;
 }
 
-async function loadSprite(theme: CursorThemeId, shape: CursorShape, width: number): Promise<CursorSprite> {
-  const image = new Image();
-  image.src = cursorAssetUrl(theme, shape);
-  await image.decode();
-  const aspect = image.naturalHeight / image.naturalWidth;
+function rasterize(source: HTMLImageElement, width: number, aspect: number): OffscreenCanvas {
   const canvas = new OffscreenCanvas(width, Math.max(1, Math.round(width * aspect)));
   const ctx = canvas.getContext("2d");
   if (ctx) {
     ctx.imageSmoothingQuality = "high";
-    ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+    ctx.drawImage(source, 0, 0, canvas.width, canvas.height);
   }
+  return canvas;
+}
+
+async function loadSprite(theme: CursorThemeId, shape: CursorShape, width: number): Promise<CursorSprite> {
+  const source = new Image();
+  source.src = cursorAssetUrl(theme, shape);
+  await source.decode();
+  const aspect = source.naturalHeight / source.naturalWidth;
   const [x, y] = HOTSPOTS[theme][shape];
-  return { image: canvas, hotspot: [x, y], aspect };
+  return { image: rasterize(source, width, aspect), hotspot: [x, y], aspect, source };
 }
 
 async function loadSprites(theme: CursorThemeId, width: number): Promise<CursorSprites> {
@@ -46,6 +52,7 @@ export async function rasterizeCursorSprites(theme: CursorThemeId, width: number
   const sprites = await loadSprites(theme, Math.max(1, Math.round(width)));
   for (const sprite of Object.values(sprites)) {
     if (sprite.image instanceof OffscreenCanvas) sprite.image = sprite.image.transferToImageBitmap();
+    delete sprite.source;
   }
   return sprites;
 }
@@ -59,4 +66,24 @@ export function loadCursorSprites(theme: CursorThemeId): Promise<CursorSprites> 
     spritePromises.set(theme, promise);
   }
   return promise;
+}
+
+const rasters = new WeakMap<CursorSprite, Map<number, OffscreenCanvas>>();
+
+export function spriteImageAt(sprite: CursorSprite, width: number): OffscreenCanvas | ImageBitmap {
+  if (!sprite.source) return sprite.image;
+  const pixels = Math.max(1, Math.round(width));
+  let sizes = rasters.get(sprite);
+  if (!sizes) {
+    sizes = new Map();
+    rasters.set(sprite, sizes);
+  }
+  const image = sizes.get(pixels) ?? rasterize(sprite.source, pixels, sprite.aspect);
+  sizes.delete(pixels);
+  sizes.set(pixels, image);
+  for (const size of sizes.keys()) {
+    if (sizes.size <= MAX_RASTERS_PER_SPRITE) break;
+    sizes.delete(size);
+  }
+  return image;
 }
