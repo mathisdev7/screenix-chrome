@@ -21,7 +21,7 @@ export type BackgroundRequest =
   | { type: "license/activate-key"; licenseKey: string }
   | { type: "instant/progress"; projectId: ProjectId; progress: number };
 
-export type BackgroundResponse = { ok: true } | { ok: false; error: string; code?: string };
+export type BackgroundResponse = { ok: true } | { ok: false; error: string; code?: string; licenseId?: string };
 
 export const RECORDING_STATUS_KEY = "recordingStatus";
 

@@ -2,10 +2,10 @@ import { Dialog } from "@base-ui/react/dialog";
 import { IconX } from "@tabler/icons-react";
 import { useState, type FormEvent } from "react";
 import { activateLicenseKey, deactivateLicense, LICENSE_ALREADY_ACTIVE, LicenseActivationError, type License } from "@/shared/license";
-import { closeLicenseDialog, openLicenseDashboard, openLicensePricing, openTerms, useLicense, useLicenseDialogOpen } from "../hooks/useLicense";
+import { closeLicenseDialog, openLicenseDashboard, openLicenseDisconnect, openLicensePricing, openTerms, useLicense, useLicenseDialogOpen } from "../hooks/useLicense";
 import { ActionButton } from "./controls";
 
-type Request = { status: "idle" } | { status: "pending" } | { status: "failed"; error: string; alreadyActive?: boolean };
+type Request = { status: "idle" } | { status: "pending" } | { status: "failed"; error: string; alreadyActive?: { licenseId: string | null } };
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -65,7 +65,7 @@ function ActivateLicense() {
       setKey("");
       setRequest({ status: "idle" });
     } catch (error) {
-      const alreadyActive = error instanceof LicenseActivationError && error.code === LICENSE_ALREADY_ACTIVE;
+      const alreadyActive = error instanceof LicenseActivationError && error.code === LICENSE_ALREADY_ACTIVE ? { licenseId: error.licenseId } : undefined;
       setRequest({ status: "failed", error: errorMessage(error), alreadyActive });
     }
   };
@@ -89,7 +89,7 @@ function ActivateLicense() {
           {request.alreadyActive && (
             <>
               {" "}
-              <button type="button" onClick={openLicenseDashboard} className="font-medium text-ring underline underline-offset-2 hover:text-ring/80">
+              <button type="button" onClick={() => openLicenseDisconnect(request.alreadyActive?.licenseId ?? null)} className="font-medium text-ring underline underline-offset-2 hover:text-ring/80">
                 Manage licenses
               </button>
             </>

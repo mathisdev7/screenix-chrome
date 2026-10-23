@@ -138,8 +138,10 @@ async function handleRequest(request: BackgroundRequest): Promise<BackgroundResp
     }
     return { ok: true };
   } catch (error) {
-    const code = error instanceof LicenseActivationError && error.code ? { code: error.code } : {};
-    return { ok: false, error: error instanceof Error ? error.message : String(error), ...code };
+    const details = error instanceof LicenseActivationError
+      ? { ...(error.code ? { code: error.code } : {}), ...(error.licenseId ? { licenseId: error.licenseId } : {}) }
+      : {};
+    return { ok: false, error: error instanceof Error ? error.message : String(error), ...details };
   }
 }
 

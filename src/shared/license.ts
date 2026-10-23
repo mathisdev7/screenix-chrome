@@ -18,7 +18,7 @@ const TOKEN_TYPE = "chrome-license";
 const OFFLINE_GRACE_MS = 7 * 24 * 60 * 60 * 1000;
 
 export class LicenseActivationError extends Error {
-  constructor(message: string, readonly code: string | null) {
+  constructor(message: string, readonly code: string | null, readonly licenseId: string | null) {
     super(message);
   }
 }
@@ -113,9 +113,16 @@ export async function activateLicenseKey(licenseKey: string): Promise<License> {
     body: JSON.stringify({ licenseKey: licenseKey.trim(), installId: await installId() }),
   }).catch(() => null);
   if (!response) throw new Error("Couldn't reach Screenix. Check your connection and try again.");
-  const body = (await response.json().catch(() => ({}))) as { token?: string; error?: string; code?: string };
-  if (!response.ok || !body.token) throw new LicenseActivationError(body.error ?? "This license key couldn't be activated.", body.code ?? null);
+  const body = (await response.json().catch(() => ({}))) as { token?: string; error?: string; code?: string; licenseId?: string };
+  if (!response.ok || !body.token) {
+    throw new LicenseActivationError(body.error ?? "This license key couldn't be activated.", body.code ?? null, body.licenseId ?? null);
+  }
   return storeLicenseToken(body.token, licenseKey.trim().slice(-KEY_HINT_LENGTH).toUpperCase());
+}
+
+export function licenseDisconnectUrl(licenseId: string | null): string {
+  if (!licenseId) return LICENSE_DASHBOARD_URL;
+  return `${LICENSE_DASHBOARD_URL}?${new URLSearchParams({ disconnect: licenseId, app: "chrome" })}`;
 }
 
 export async function deactivateLicense(): Promise<void> {

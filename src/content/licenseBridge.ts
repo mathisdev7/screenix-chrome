@@ -9,7 +9,7 @@ type PageMessage =
 
 type ExtensionMessage =
   | { source: typeof EXTENSION_SOURCE; type: "ready" }
-  | { source: typeof EXTENSION_SOURCE; type: "activation-result"; ok: boolean; error?: string; code?: string };
+  | { source: typeof EXTENSION_SOURCE; type: "activation-result"; ok: boolean; error?: string; code?: string; licenseId?: string };
 
 function postToPage(message: ExtensionMessage) {
   window.postMessage(message, window.location.origin);
@@ -23,7 +23,7 @@ async function activate(licenseKey: string) {
   const response = await sendBackgroundRequest({ type: "license/activate-key", licenseKey });
   postToPage(response.ok
     ? { source: EXTENSION_SOURCE, type: "activation-result", ok: true }
-    : { source: EXTENSION_SOURCE, type: "activation-result", ok: false, error: response.error, code: response.code });
+    : { source: EXTENSION_SOURCE, type: "activation-result", ok: false, error: response.error, code: response.code, licenseId: response.licenseId });
 }
 
 window.addEventListener("message", (event) => {
