@@ -63,35 +63,43 @@ export class Compositor {
 
     const zoom = this.inputs.zoom.at(time);
     const zoomScene = background.enabled && !background.zoomInsideFrame;
+    const zoomRect = background.zoomBrowserFrame ? windowRect : video;
+    const zoomWindow = !zoomScene && background.zoomBrowserFrame;
+    const zoomVideo = !zoomScene && !background.zoomBrowserFrame;
 
     ctx.save();
     ctx.clearRect(0, 0, output.width, output.height);
     ctx.save();
-    if (zoomScene) applyZoom(ctx, video, zoom);
+    if (zoomScene) applyZoom(ctx, zoomRect, zoom);
     if (background.enabled) ctx.drawImage(this.backdropFor(output, windowRect, radius, scale), 0, 0);
 
     ctx.save();
     ctx.clip(shape);
+    if (zoomWindow) applyZoom(ctx, zoomRect, zoom);
     if (windowRect.height > video.height && background.browserFrame !== "off") {
       const bar = { ...windowRect, height: windowRect.height - video.height };
-      this.browserBar.paint(ctx, bar, this.inputs.browser?.at(time) ?? null, background.browserFrame);
+      this.browserBar.paint(ctx, bar, this.inputs.browser?.at(time) ?? null, background.browserFrame, background.showUrlDetails);
       ctx.beginPath();
       ctx.rect(video.x, video.y, video.width, video.height);
       ctx.clip();
     }
     ctx.fillStyle = "#000";
     ctx.fillRect(video.x, video.y, video.width, video.height);
-    if (!zoomScene) applyZoom(ctx, video, zoom);
+    if (zoomVideo) applyZoom(ctx, zoomRect, zoom);
     const fullVideo = uncroppedRect(video, settings.crop);
     const frameRect = frame ? frameRectFor(fullVideo, frame, background) : fullVideo;
     if (frame) ctx.drawImage(frame, frameRect.x, frameRect.y, frameRect.width, frameRect.height);
     ctx.restore();
 
     ctx.save();
+    if (zoomWindow) {
+      ctx.clip(shape);
+      applyZoom(ctx, zoomRect, zoom);
+    }
     ctx.beginPath();
     ctx.rect(video.x, video.y, video.width, video.height);
     ctx.clip();
-    if (!zoomScene) applyZoom(ctx, video, zoom);
+    if (zoomVideo) applyZoom(ctx, zoomRect, zoom);
     const { cursor } = settings;
     drawClickEffects(ctx, this.inputs.timeline.clicks, time, cursor.clickEffect, cursor.clickEffectIntensity, frameRect);
     const sprites = zoom.scale > 1 && this.inputs.zoomSprites ? this.inputs.zoomSprites : this.inputs.sprites;

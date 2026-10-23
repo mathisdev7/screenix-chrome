@@ -38,6 +38,12 @@ export function BackgroundPanel({ background, onChange, onUploadWallpaper }: {
 
       <Section title="Browser frame">
         <SegmentedControl label="Browser frame" options={BROWSER_FRAMES} value={background.browserFrame} onChange={(browserFrame) => onChange({ background: { browserFrame } })} />
+        {background.browserFrame !== "off" && (
+          <>
+            <SwitchRow label="Zoom with the page" checked={background.zoomBrowserFrame} onChange={(zoomBrowserFrame) => onChange({ background: { zoomBrowserFrame } })} />
+            <SwitchRow label="Show query and hash" checked={background.showUrlDetails} onChange={(showUrlDetails) => onChange({ background: { showUrlDetails } })} />
+          </>
+        )}
       </Section>
 
       {background.enabled && (

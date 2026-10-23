@@ -37,6 +37,8 @@ export interface BackgroundSettings {
   glassBorderOpacity: number;
   zoomInsideFrame: boolean;
   browserFrame: BrowserFrameStyle;
+  zoomBrowserFrame: boolean;
+  showUrlDetails: boolean;
 }
 
 export interface CameraSettings {
@@ -99,6 +101,7 @@ export interface EditorSettings {
   trim: TrimRange;
   speed: SpeedClip[];
   zoom: ZoomClip[];
+  pageUrls: Record<string, string>;
 }
 
 export const DEFAULT_CURSOR_SETTINGS: CursorSettings = {
@@ -130,6 +133,8 @@ export const DEFAULT_BACKGROUND_SETTINGS: BackgroundSettings = {
   glassBorderOpacity: 0.18,
   zoomInsideFrame: false,
   browserFrame: "off",
+  zoomBrowserFrame: true,
+  showUrlDetails: false,
 };
 
 export const DEFAULT_CAMERA_SETTINGS: CameraSettings = {
@@ -162,6 +167,7 @@ export function createDefaultSettings(): EditorSettings {
     trim: { start: 0, end: null },
     speed: [],
     zoom: [],
+    pageUrls: {},
   };
 }
 
@@ -177,6 +183,7 @@ export function withDefaults(settings: Partial<EditorSettings> | null | undefine
     trim: { ...defaults.trim, ...settings?.trim },
     speed: Array.isArray(settings?.speed) ? settings.speed : defaults.speed,
     zoom: Array.isArray(settings?.zoom) ? settings.zoom : defaults.zoom,
+    pageUrls: { ...settings?.pageUrls },
   };
 }
 
@@ -190,6 +197,7 @@ export interface SettingsPatch {
   trim?: Partial<TrimRange>;
   speed?: SpeedClip[];
   zoom?: ZoomClip[];
+  pageUrls?: Record<string, string>;
 }
 
 export function applySettingsPatch(settings: EditorSettings, patch: SettingsPatch): EditorSettings {
@@ -203,5 +211,6 @@ export function applySettingsPatch(settings: EditorSettings, patch: SettingsPatc
     trim: patch.trim ? { ...settings.trim, ...patch.trim } : settings.trim,
     speed: patch.speed ?? settings.speed,
     zoom: patch.zoom ?? settings.zoom,
+    pageUrls: patch.pageUrls ?? settings.pageUrls,
   };
 }

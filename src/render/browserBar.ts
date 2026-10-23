@@ -21,10 +21,27 @@ export interface BrowserPage {
   favicon: ImageBitmap | null;
 }
 
-export function displayUrl(url: string): { host: string; path: string } {
+function fileName(pathname: string): string {
+  const name = pathname.split("/").at(-1) ?? "";
+  try {
+    return decodeURIComponent(name);
+  } catch {
+    return name;
+  }
+}
+
+function hostlessLabel({ protocol, pathname }: URL): string {
+  if (protocol === "file:") return fileName(pathname) || "file";
+  if (protocol === "about:") return `about:${pathname}`;
+  return protocol.slice(0, -1);
+}
+
+export function displayUrl(url: string, showDetails: boolean): { host: string; path: string } {
   const parsed = URL.parse(url);
-  if (!parsed?.host) return { host: url, path: "" };
-  const path = `${parsed.pathname === "/" ? "" : parsed.pathname}${parsed.search}${parsed.hash}`;
+  if (!parsed) return { host: "", path: "" };
+  if (!parsed.host) return { host: hostlessLabel(parsed), path: "" };
+  const details = showDetails ? `${parsed.search}${parsed.hash}` : "";
+  const path = `${parsed.pathname === "/" ? "" : parsed.pathname}${details}`;
   return { host: parsed.host.replace(/^www\./, ""), path };
 }
 
@@ -66,6 +83,14 @@ export class BrowserPages {
     return new BrowserPages(pages);
   }
 
+  withUrls(urls: Readonly<Record<string, string>>): BrowserPages {
+    return new BrowserPages(this.pages.map((page) => {
+      const url = urls[page.url] ?? page.url;
+      const sameHost = URL.parse(url)?.host === URL.parse(page.url)?.host;
+      return { ...page, url, favicon: sameHost ? page.favicon : null };
+    }));
+  }
+
   at(time: number): BrowserPage | null {
     let current = this.pages[0] ?? null;
     for (const page of this.pages) {
@@ -80,7 +105,7 @@ export class BrowserBarPainter {
   private fitKey = "";
   private fittedPath = "";
 
-  paint(ctx: Context2D, bar: Rect, page: BrowserPage | null, style: BarStyle) {
+  paint(ctx: Context2D, bar: Rect, page: BrowserPage | null, style: BarStyle, showUrlDetails: boolean) {
     const palette = PALETTES[style];
     const h = bar.height;
     const midY = bar.y + h / 2;
@@ -107,7 +132,7 @@ export class BrowserBarPainter {
     ctx.fillStyle = palette.field;
     ctx.fill();
 
-    if (page) this.paintUrl(ctx, page, { x: fieldX, y: fieldY, ...field }, palette);
+    if (page) this.paintUrl(ctx, page, showUrlDetails, { x: fieldX, y: fieldY, ...field }, palette);
     ctx.restore();
   }
 
@@ -128,11 +153,11 @@ export class BrowserBarPainter {
     ctx.stroke();
   }
 
-  private paintUrl(ctx: Context2D, page: BrowserPage, field: Rect, palette: (typeof PALETTES)[BarStyle]) {
-    const { host, path } = displayUrl(page.url);
+  private paintUrl(ctx: Context2D, { url, favicon }: BrowserPage, showDetails: boolean, field: Rect, palette: (typeof PALETTES)[BarStyle]) {
+    const { host, path } = displayUrl(url, showDetails);
     const fontSize = field.height * 0.46;
-    const iconSize = page.favicon ? field.height * 0.5 : 0;
-    const gap = page.favicon ? field.height * 0.3 : 0;
+    const iconSize = favicon ? field.height * 0.5 : 0;
+    const gap = favicon ? field.height * 0.3 : 0;
     const padding = field.height * 0.5;
 
     ctx.font = `500 ${fontSize}px ${FONT_FAMILY}`;
@@ -143,8 +168,8 @@ export class BrowserBarPainter {
 
     let x = field.x + Math.max(padding, (field.width - iconSize - gap - hostWidth - pathWidth) / 2);
     const midY = field.y + field.height / 2;
-    if (page.favicon) {
-      ctx.drawImage(page.favicon, x, midY - iconSize / 2, iconSize, iconSize);
+    if (favicon) {
+      ctx.drawImage(favicon, x, midY - iconSize / 2, iconSize, iconSize);
       x += iconSize + gap;
     }
     ctx.save();

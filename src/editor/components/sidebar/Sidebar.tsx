@@ -1,8 +1,8 @@
-import { IconAspectRatio, IconChevronsLeft, IconChevronsRight, IconMusic, IconPhoto, IconPointer, IconVideo, IconZoomIn, type Icon } from "@tabler/icons-react";
+import { IconAspectRatio, IconChevronsLeft, IconChevronsRight, IconMusic, IconPhoto, IconPointer, IconVideo, IconWorld, IconZoomIn, type Icon } from "@tabler/icons-react";
 import clsx from "clsx";
 import { useState, type ReactNode } from "react";
 
-export type SidebarTab = "cursor" | "zoom" | "camera" | "ratio" | "audio" | "background";
+export type SidebarTab = "cursor" | "zoom" | "camera" | "ratio" | "audio" | "background" | "pages";
 
 const TABS: readonly { id: SidebarTab; label: string; icon: Icon }[] = [
   { id: "cursor", label: "Cursor", icon: IconPointer },
@@ -11,6 +11,7 @@ const TABS: readonly { id: SidebarTab; label: string; icon: Icon }[] = [
   { id: "ratio", label: "Ratio", icon: IconAspectRatio },
   { id: "audio", label: "Audio", icon: IconMusic },
   { id: "background", label: "Background", icon: IconPhoto },
+  { id: "pages", label: "Pages", icon: IconWorld },
 ];
 
 export function Sidebar({ activeTab, onTabChange, renderPanel }: {

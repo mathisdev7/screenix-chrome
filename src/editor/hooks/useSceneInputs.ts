@@ -66,7 +66,8 @@ function useBrowserPages(media: ProjectMedia): BrowserPages {
 export function useSceneInputs(media: ProjectMedia, settings: EditorSettings) {
   const sprites = useCursorSprites(settings.cursor.theme);
   const wallpaper = useWallpaperImage(media, settings);
-  const browser = useBrowserPages(media);
+  const recordedPages = useBrowserPages(media);
+  const browser = useMemo(() => recordedPages.withUrls(settings.pageUrls), [recordedPages, settings.pageUrls]);
   const timeline = useMemo(
     () => buildCursorTimeline(media.pointer, settings.cursor.speed),
     [media.pointer, settings.cursor.speed],
