@@ -1,4 +1,4 @@
-import { IconLayoutGrid, IconPlayerRecordFilled, IconPlayerStopFilled, IconX } from "@tabler/icons-react";
+import { IconAlertTriangle, IconLayoutGrid, IconPlayerRecordFilled, IconPlayerStopFilled, IconX } from "@tabler/icons-react";
 import clsx from "clsx";
 import { useEffect, useState } from "react";
 import { openLicensePricing, useLicense } from "@/editor/hooks/useLicense";
@@ -11,6 +11,7 @@ import {
   type BackgroundRequest,
   type RecordingStatus,
 } from "@/shared/messages";
+import { uncapturableReason } from "@/shared/tabCapture";
 
 const LICENSE_PAGE = "/editor.html?license=1";
 
@@ -27,6 +28,21 @@ function useRecordingStatus(): RecordingStatus {
   }, []);
 
   return status;
+}
+
+function useActiveTabWarning(): string | null {
+  const [warning, setWarning] = useState<string | null>(null);
+
+  useEffect(() => {
+    void Promise.all([
+      chrome.tabs.query({ active: true, currentWindow: true }),
+      chrome.extension.isAllowedFileSchemeAccess(),
+    ]).then(([[tab], fileAccess]) => {
+      setWarning(tab ? uncapturableReason(tab.url ?? "", chrome.runtime.getURL(""), fileAccess) : null);
+    });
+  }, []);
+
+  return warning;
 }
 
 function useNow(active: boolean, intervalMs: number): number {
@@ -51,6 +67,7 @@ export function Popup() {
   const [error, setError] = useState<string | null>(null);
   const { license, loading: licenseLoading } = useLicense();
   const media = useMediaState();
+  const tabWarning = useActiveTabWarning();
   const instant = media.state?.settings.mode === "instant";
 
   const send = async (request: BackgroundRequest) => {
@@ -76,6 +93,13 @@ export function Popup() {
           <ModeControls settings={media.state.settings} disabled={status.state !== "idle"} onChange={media.update} />
           <MediaControls state={media.state} disabled={status.state !== "idle"} onChange={media.update} />
         </>
+      )}
+
+      {tabWarning && status.state !== "recording" && (
+        <p className="flex gap-2 text-[11px] leading-snug text-[#d9a45a]">
+          <IconAlertTriangle size={14} className="mt-px shrink-0" />
+          <span>{tabWarning} Switch to a website tab first, or the video stays black until you do.</span>
+        </p>
       )}
 
       {status.state === "recording" ? (

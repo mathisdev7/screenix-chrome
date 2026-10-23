@@ -26,6 +26,7 @@ Two Vite builds:
 |---|---|
 | `src/shared/screenixOrigin.ts` | `SCREENIX_ORIGIN`, the only place the website address lives (`http://localhost:3000` during development, `https://screenix.studio` for release). Everything else, including the manifest, derives from it. |
 | `src/manifest.ts` | MV3 manifest, emitted as `dist/manifest.json` by a Vite plugin. The license-bridge content script match is built from `SCREENIX_ORIGIN`. Permissions: `alarms`, `debugger`, `downloads`, `offscreen`, `scripting`, `storage`, `tabCapture`, `tabs`, `unlimitedStorage`, `<all_urls>`. Command `toggle-recording` (Alt+Shift+R). |
+| `public/_locales/` | Name and description in en (default), es, pt_BR, fr, de, ja, ko, zh_CN, it and ru. They are the Chrome Web Store title (max 75 characters) and summary (max 132) per language; the UI stays English. Store descriptions per language are in `release/store/locales/`. |
 | `src/background/index.ts` | Service worker entry: popup/command messages, recording status in `chrome.storage.session`, routes tab events and tracker ports to the session. |
 | `src/background/recordingSession.ts` | One recording: follows the active tab of the starting window, injects and registers the tracker, writes frames and pointer batches to IndexedDB, builds the project record and thumbnail on stop. |
 | `src/background/screencaster.ts` | `chrome.debugger` + CDP `Page.startScreencast` (JPEG). Validates frame timestamps against the wall clock. |
