@@ -10,9 +10,11 @@ import { ActionButton, SegmentedControl } from "./controls";
 import { currentLicense, type License } from "@/shared/license";
 import type { ProjectShare } from "@/shared/types";
 import { openLicenseDialog, openLicensePricing } from "../hooks/useLicense";
+import { useProgressWindow } from "../hooks/useProgressWindow";
 import { isSharing, useShareLink } from "../hooks/useShareLink";
 import { rememberExport } from "../lib/exportCache";
 import { fileNameFor } from "../lib/format";
+import { ProgressWindow } from "./ProgressWindow";
 import { ShareStatus } from "./ShareStatus";
 
 const RESOLUTIONS = [
@@ -139,10 +141,12 @@ export function ExportDialog({ open, onOpenChange, media, inputs, license, onSha
   const shareLink = useShareLink(media, inputs, onShared);
   const shareable = options.format !== "webm-vp9";
   const uploading = isSharing(shareLink.state);
+  const progressWindow = useProgressWindow();
 
   const start = async (intent: ExportIntent) => {
+    void progressWindow.open();
     shareLink.reset();
-    if (intent === "share" && !(await shareLink.ensureAccess())) return;
+    if (intent === "share" && !(await shareLink.ensureAccess())) return progressWindow.close();
     const controller = new AbortController();
     abortRef.current = controller;
     setState({ status: "exporting", progress: 0 });
@@ -150,7 +154,7 @@ export function ExportDialog({ open, onOpenChange, media, inputs, license, onSha
       const watermarked = !(await currentLicense());
       const video = await exportVideo(media, inputs, options, watermarked, (progress) => {
         setState((current) => (current.status === "exporting" ? { status: "exporting", progress } : current));
-      }, controller.signal);
+      }, controller.signal).finally(progressWindow.close);
       rememberExport(media.project.id, inputs.settings, video, watermarked);
       const fileName = fileNameFor(media.project.name, video.extension);
       if (intent === "save") await save(video, fileName);
@@ -163,6 +167,7 @@ export function ExportDialog({ open, onOpenChange, media, inputs, license, onSha
       else setState({ status: "error", message: errorMessage(error) });
     } finally {
       abortRef.current = null;
+      progressWindow.close();
     }
   };
 
@@ -236,6 +241,9 @@ export function ExportDialog({ open, onOpenChange, media, inputs, license, onSha
               </div>
               <p className="text-[11px] tabular-nums text-muted-foreground">Rendering… {Math.round(state.progress * 100)}%</p>
             </div>
+          )}
+          {state.status === "exporting" && progressWindow.target && (
+            <ProgressWindow target={progressWindow.target} label="Exporting" progress={state.progress} onCancel={() => abortRef.current?.abort()} />
           )}
           {state.status === "done" && state.save && <SaveStatus save={state.save} />}
           <ShareStatus share={shareLink.state} />

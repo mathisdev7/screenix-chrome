@@ -7,7 +7,7 @@ function openUrl(url: string) {
   void chrome.tabs.create({ url });
 }
 
-function ProgressBar({ label, progress }: { label: string; progress: number }) {
+export function ProgressBar({ label, progress }: { label: string; progress: number }) {
   return (
     <div className="space-y-1.5">
       <div className="h-1.5 overflow-hidden rounded-full bg-surface-2">
