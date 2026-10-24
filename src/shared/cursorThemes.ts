@@ -6,6 +6,15 @@ export const CURSOR_THEMES = [
   { id: "mocu", label: "Mocu" },
   { id: "kenney", label: "Kenney" },
   { id: "mint", label: "Mint" },
+  { id: "snow", label: "Snow" },
+  { id: "ink", label: "Ink" },
+  { id: "neon", label: "Neon" },
+  { id: "blueprint", label: "Blueprint" },
+  { id: "comic", label: "Comic" },
+  { id: "hologram", label: "Hologram" },
+  { id: "retro", label: "Retro" },
+  { id: "eightbit", label: "8-bit" },
+  { id: "terminal", label: "Terminal" },
 ] as const;
 
 export type CursorThemeId = (typeof CURSOR_THEMES)[number]["id"];
