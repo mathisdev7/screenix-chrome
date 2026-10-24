@@ -5,6 +5,12 @@ import { activateLicenseKey, deactivateLicense, LICENSE_ALREADY_ACTIVE, LicenseA
 import { closeLicenseDialog, openLicenseDashboard, openLicenseDisconnect, openLicensePricing, openTerms, useLicense, useLicenseDialogOpen } from "../hooks/useLicense";
 import { ActionButton } from "./controls";
 
+const LAUNCH_PRICE_ENDS_AT = Date.UTC(2026, 10, 9, 12);
+
+function launchPriceActive(): boolean {
+  return Date.now() < LAUNCH_PRICE_ENDS_AT;
+}
+
 type Request = { status: "idle" } | { status: "pending" } | { status: "failed"; error: string; alreadyActive?: { licenseId: string | null } };
 
 function errorMessage(error: unknown): string {
@@ -102,7 +108,13 @@ function ActivateLicense() {
       <p className="text-center text-[12px] text-muted-foreground">
         No license yet?{" "}
         <button type="button" onClick={openLicensePricing} className="font-medium text-ring hover:text-ring/80">
-          Remove the watermark for <s className="font-normal text-muted-foreground">$29</s> $19
+          {launchPriceActive() ? (
+            <>
+              Remove the watermark for <s className="font-normal text-muted-foreground">$39</s> $19 until Nov 8
+            </>
+          ) : (
+            "Remove the watermark for $39"
+          )}
         </button>
       </p>
     </form>
