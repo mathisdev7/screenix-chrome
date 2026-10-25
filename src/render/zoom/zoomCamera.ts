@@ -12,7 +12,7 @@ export interface ZoomSource {
   at(time: number): ZoomView;
 }
 
-interface Point {
+export interface Point {
   x: number;
   y: number;
 }
@@ -32,7 +32,7 @@ interface ConnectedPair {
   to: number;
 }
 
-interface Bucket extends Point {
+export interface Bucket extends Point {
   start: number;
 }
 
@@ -164,17 +164,14 @@ function manualView(clips: readonly ZoomClip[], pairs: readonly ConnectedPair[],
   return compose(manualScale(best.clip), manualFocus(best.clip), best.strength);
 }
 
-function deadzoneBuckets(points: readonly TimelinePoint[], clip: ZoomClip): Bucket[] {
-  const visible = 1 / Math.max(1, clip.scale);
-  const areaX = visible * 0.5;
-  const areaY = visible * 0.7;
+export function deadzoneBuckets(points: readonly TimelinePoint[], areaX: number, areaY: number, start = -Infinity, end = Infinity): Bucket[] {
   const buckets: Bucket[] = [];
   let current: { start: number; minX: number; maxX: number; minY: number; maxY: number } | null = null;
   const flush = () => {
     if (current) buckets.push({ start: current.start, x: (current.minX + current.maxX) / 2, y: (current.minY + current.maxY) / 2 });
   };
   for (const point of points) {
-    if (point.t < clip.start || point.t > clip.end) continue;
+    if (point.t < start || point.t > end) continue;
     if (current) {
       const minX = Math.min(current.minX, point.x);
       const maxX = Math.max(current.maxX, point.x);
@@ -192,7 +189,12 @@ function deadzoneBuckets(points: readonly TimelinePoint[], clip: ZoomClip): Buck
   return buckets;
 }
 
-function bucketAt(buckets: readonly Bucket[], time: number): Bucket {
+function clipBuckets(points: readonly TimelinePoint[], clip: ZoomClip): Bucket[] {
+  const visible = 1 / Math.max(1, clip.scale);
+  return deadzoneBuckets(points, visible * 0.5, visible * 0.7, clip.start, clip.end);
+}
+
+export function bucketAt(buckets: readonly Bucket[], time: number): Bucket {
   let lo = 0;
   let hi = buckets.length - 1;
   while (lo < hi) {
@@ -210,7 +212,7 @@ export class ZoomCamera {
   private deadzone = { x: 0.5, y: 0.5, vx: 0, vy: 0, initialized: false };
 
   constructor(clips: readonly ZoomClip[], private readonly points: readonly TimelinePoint[]) {
-    this.auto = clips.filter((clip) => clip.mode === "auto").map((clip) => ({ clip, buckets: deadzoneBuckets(points, clip) }));
+    this.auto = clips.filter((clip) => clip.mode === "auto").map((clip) => ({ clip, buckets: clipBuckets(points, clip) }));
     this.manual = clips.filter((clip) => clip.mode === "manual");
     this.pairs = connectedPairs(clips);
   }

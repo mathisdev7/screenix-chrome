@@ -7,7 +7,8 @@ import { CursorPainter } from "./cursor/cursorPainter";
 import { cursorStateAt } from "./cursor/cursorState";
 import type { CursorSprites } from "./cursor/theme";
 import type { CursorTimeline } from "./cursor/timeline";
-import { croppedSize, frameRectFor, referenceScale, roundedShapePath, uncroppedRect, videoRectFor, windowRectFor, type Rect, type Size } from "./geometry";
+import { croppedSize, followRect, frameRectFor, referenceScale, roundedShapePath, uncroppedRect, videoRectFor, windowRectFor, type Rect, type Size } from "./geometry";
+import type { FollowSource } from "./zoom/followTimeline";
 import type { ZoomSource, ZoomView } from "./zoom/zoomCamera";
 
 type Context2D = OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D;
@@ -21,6 +22,7 @@ export interface SceneInputs {
   source: Size;
   timeline: CursorTimeline;
   zoom: ZoomSource;
+  follow?: FollowSource | null;
   sprites: CursorSprites;
   zoomSprites?: CursorSprites | null;
   wallpaper: ImageBitmap | null;
@@ -86,7 +88,9 @@ export class Compositor {
     ctx.fillStyle = "#000";
     ctx.fillRect(video.x, video.y, video.width, video.height);
     if (zoomVideo) applyZoom(ctx, zoomRect, zoom);
-    const fullVideo = uncroppedRect(video, settings.crop);
+    const follow = this.inputs.follow;
+    const content = follow ? followRect(video, croppedSize(source, settings.crop), follow.at(time)) : video;
+    const fullVideo = uncroppedRect(content, settings.crop);
     const frameRect = frame ? frameRectFor(fullVideo, frame, background) : fullVideo;
     if (frame) ctx.drawImage(frame, frameRect.x, frameRect.y, frameRect.width, frameRect.height);
     ctx.restore();

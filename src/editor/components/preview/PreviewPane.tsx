@@ -15,6 +15,7 @@ function uncroppedInputs(inputs: SceneInputs): SceneInputs {
   return {
     ...inputs,
     zoom: ZoomTimeline.empty,
+    follow: null,
     settings: {
       ...settings,
       crop: FULL_CROP,

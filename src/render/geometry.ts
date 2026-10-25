@@ -1,4 +1,5 @@
 import type { AspectRatioId, BackgroundSettings, CropRect, EditorSettings } from "@/shared/settings";
+import { clamp } from "./zoom/easing";
 
 export interface Size {
   width: number;
@@ -51,6 +52,29 @@ export function outputAspect(settings: EditorSettings, source: Size): number {
   const aspect = aspectValue(settings.aspectRatio, croppedSize(source, settings.crop));
   if (settings.aspectRatio !== "source" || settings.background.enabled) return aspect;
   return aspect / (1 + aspect * browserBarRatio(settings.background));
+}
+
+const FOLLOW_TOLERANCE = 0.01;
+
+export function visibleArea(settings: EditorSettings, source: Size): Size | null {
+  if (settings.background.enabled) return null;
+  const content = croppedSize(source, settings.crop);
+  const output = outputAspect(settings, source);
+  const videoAspect = output / (1 - output * browserBarRatio(settings.background));
+  const contentAspect = content.width / content.height;
+  const visible = videoAspect < contentAspect
+    ? { width: videoAspect / contentAspect, height: 1 }
+    : { width: 1, height: contentAspect / videoAspect };
+  return Math.min(visible.width, visible.height) < 1 - FOLLOW_TOLERANCE ? visible : null;
+}
+
+export function followRect(video: Rect, content: Size, focus: { x: number; y: number }): Rect {
+  const cover = coverRect(video, content);
+  return {
+    ...cover,
+    x: clamp(video.x + video.width / 2 - focus.x * cover.width, video.x + video.width - cover.width, video.x),
+    y: clamp(video.y + video.height / 2 - focus.y * cover.height, video.y + video.height - cover.height, video.y),
+  };
 }
 
 export function uncroppedRect(visible: Rect, crop: CropRect): Rect {

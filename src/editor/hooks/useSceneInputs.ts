@@ -4,7 +4,9 @@ import type { SceneInputs } from "@/render/compositor";
 import { loadCursorSprites, type CursorSprites } from "@/render/cursor/theme";
 import { buildCursorTimeline, type TimelinePoint } from "@/render/cursor/timeline";
 import type { ProjectMedia } from "@/render/projectMedia";
+import { visibleArea } from "@/render/geometry";
 import { loadWallpaper } from "@/render/wallpapers";
+import { FollowTimeline } from "@/render/zoom/followTimeline";
 import { ZoomTimeline } from "@/render/zoom/zoomTimeline";
 import type { CursorThemeId } from "@/shared/cursorThemes";
 import type { CropRect, EditorSettings } from "@/shared/settings";
@@ -74,14 +76,23 @@ export function useSceneInputs(media: ProjectMedia, settings: EditorSettings) {
   );
 
   const { crop } = settings;
+  const { duration } = media.project;
+  const points = useMemo(() => toCropSpace(timeline.raw, crop), [timeline.raw, crop]);
+  const { width: visibleWidth, height: visibleHeight } = visibleArea(settings, media.source) ?? { width: 1, height: 1 };
+  const follow = useMemo(
+    () => (visibleWidth < 1 || visibleHeight < 1 ? FollowTimeline.build(points, { width: visibleWidth, height: visibleHeight }, duration) : null),
+    [points, visibleWidth, visibleHeight, duration],
+  );
   const zoom = useMemo(
-    () => ZoomTimeline.build(settings.zoom, toCropSpace(timeline.raw, crop), media.project.duration),
-    [settings.zoom, timeline.raw, crop, media.project.duration],
+    () => (follow
+      ? ZoomTimeline.build(follow.windowClips(settings.zoom), follow.windowPoints(points), duration)
+      : ZoomTimeline.build(settings.zoom, points, duration)),
+    [settings.zoom, points, follow, duration],
   );
 
   const inputs = useMemo((): SceneInputs | null => (
-    sprites ? { settings, source: media.source, timeline, zoom, sprites, wallpaper: wallpaper.image, browser } : null
-  ), [settings, media.source, timeline, zoom, sprites, wallpaper.image, browser]);
+    sprites ? { settings, source: media.source, timeline, zoom, follow, sprites, wallpaper: wallpaper.image, browser } : null
+  ), [settings, media.source, timeline, zoom, follow, sprites, wallpaper.image, browser]);
 
   return { inputs, reloadWallpaper: wallpaper.reload };
 }

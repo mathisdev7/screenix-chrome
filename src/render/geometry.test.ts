@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { createDefaultSettings, DEFAULT_BACKGROUND_SETTINGS } from "@/shared/settings";
-import { alignedSizeWithin, aspectValue, croppedSize, encoderSizeForShortSide, frameRectFor, outputAspect, uncroppedRect, videoRectFor, windowRectFor } from "./geometry";
+import { alignedSizeWithin, aspectValue, croppedSize, encoderSizeForShortSide, followRect, frameRectFor, outputAspect, uncroppedRect, videoRectFor, visibleArea, windowRectFor } from "./geometry";
 
 const source = { width: 2688, height: 1400 };
 
@@ -103,5 +103,26 @@ describe("geometry", () => {
     const portrait = frameRectFor(video, { width: 900, height: 1600 }, DEFAULT_BACKGROUND_SETTINGS);
     expect(portrait.height).toBeCloseTo(900);
     expect(portrait.width).toBeLessThan(1600);
+  });
+
+  test("without a background a different ratio shows part of the recording", () => {
+    const settings = { ...createDefaultSettings(), background: { ...DEFAULT_BACKGROUND_SETTINGS, enabled: false } };
+    expect(visibleArea(settings, source)).toBeNull();
+    expect(visibleArea({ ...settings, aspectRatio: "9:16", background: DEFAULT_BACKGROUND_SETTINGS }, source)).toBeNull();
+    const portrait = visibleArea({ ...settings, aspectRatio: "9:16" }, source);
+    expect(portrait?.width).toBeCloseTo((9 / 16) / (2688 / 1400));
+    expect(portrait?.height).toBe(1);
+    const wide = visibleArea({ ...settings, aspectRatio: "16:9" }, { width: 1600, height: 1000 });
+    expect(wide?.width).toBe(1);
+    expect(wide?.height).toBeCloseTo(0.9);
+  });
+
+  test("the followed area is centred on the focus and never leaves the recording", () => {
+    const video = { x: 0, y: 0, width: 1080, height: 1920 };
+    const content = { width: 3686, height: 1920 };
+    expect(followRect(video, content, { x: 0.5, y: 0.5 }).x).toBeCloseTo(540 - 1843);
+    expect(followRect(video, content, { x: 0.7, y: 0.5 }).x).toBeCloseTo(540 - 0.7 * 3686);
+    expect(followRect(video, content, { x: 0, y: 0.5 })).toEqual({ x: 0, y: 0, ...content });
+    expect(followRect(video, content, { x: 1, y: 0.5 }).x).toBeCloseTo(1080 - 3686);
   });
 });
