@@ -21,8 +21,8 @@ export function usePlaybackSnapshot(clock: PlaybackClock): PlaybackSnapshot {
   return useSyncExternalStore(clock.subscribe, clock.getSnapshot);
 }
 
-export function useAudioPlayback(clock: PlaybackClock, tracks: readonly LoadedAudioTrack[], settings: AudioSettings) {
-  const [player] = useState(() => new AudioPlayer(tracks, settings));
+export function useAudioPlayback(clock: PlaybackClock, tracks: readonly LoadedAudioTrack[], settings: AudioSettings, clicks: readonly number[]) {
+  const [player] = useState(() => new AudioPlayer(tracks, settings, clicks));
 
   useEffect(() => {
     const sync = () => {

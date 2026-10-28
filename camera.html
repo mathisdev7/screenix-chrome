@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Camera · Screenix</title>
+    <style>
+      html, body { margin: 0; height: 100%; overflow: hidden; background: #19191b; color: #a1a1aa; font: 500 12px/1.3 "Inter Variable", system-ui, sans-serif; }
+      video { display: block; width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
+      p:not([hidden]) { position: fixed; inset: 0; display: grid; place-items: center; margin: 0; }
+    </style>
+  </head>
+  <body>
+    <video autoplay muted playsinline></video>
+    <p hidden>Camera unavailable</p>
+    <script type="module" src="/src/cameraPage/main.ts"></script>
+  </body>
+</html>

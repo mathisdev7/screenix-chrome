@@ -1,0 +1,22 @@
+.screenix-popup .sidebar-switch-row {
+  min-height: 32px;
+  padding-block: 4px;
+}
+
+.screenix-popup .sidebar-segment {
+  min-height: 28px;
+  padding-block: 4px;
+}
+
+.screenix-popup .sidebar-slider-control {
+  height: 32px;
+}
+
+.microphone-meter {
+  position: absolute;
+  inset: auto 0 0;
+  height: 3px;
+  background: linear-gradient(90deg, #5fb381 0%, #5fb381 70%, #d9a45a 85%, #dd5b5b 100%);
+  clip-path: inset(0 100% 0 0);
+  pointer-events: none;
+}

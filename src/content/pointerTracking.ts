@@ -2,6 +2,7 @@ import type { PagePoint } from "@/shared/countdown";
 import { POINTER_PORT_NAME, type PointerPortMessage, type TrackerControlMessage } from "@/shared/messages";
 import type { CursorShape } from "@/shared/cursorShapes";
 import type { CapturedPointerSample, PointerEventKind } from "@/shared/types";
+import { hideCameraBubble, showCameraBubble } from "./cameraBubble";
 import { cursorShapeAt } from "./cursorShape";
 
 const FLUSH_INTERVAL_MS = 100;
@@ -106,12 +107,20 @@ export function connectPointerTracker() {
     const message: PointerPortMessage = { type: "samples", samples };
     port.postMessage(message);
   });
+  let cameraBubble = false;
   port.onMessage.addListener((message: TrackerControlMessage) => {
-    if (message.type === "start") tracker.start(message.pointer);
-    else tracker.stop();
+    if (message.type === "stop") {
+      tracker.stop();
+      if (cameraBubble) hideCameraBubble();
+      return;
+    }
+    tracker.start(message.pointer);
+    cameraBubble = message.cameraBubble !== null;
+    if (message.cameraBubble) showCameraBubble(message.cameraBubble);
   });
   port.onDisconnect.addListener(() => {
     tracker.detach();
+    if (cameraBubble) hideCameraBubble();
     window.__screenixPointerTracker = false;
   });
 }

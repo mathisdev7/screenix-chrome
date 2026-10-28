@@ -1,5 +1,6 @@
 import type { LiveAudioChunk } from "@/instant/liveAudioMixer";
 import { OFFSCREEN_TARGET, type BackgroundRequest, type CaptureDevices, type MediaCaptureRequest, type OffscreenRequest, type OffscreenResponse, type RecordedMedia } from "@/shared/messages";
+import { cameraConstraints, microphoneConstraints } from "@/shared/mediaAccess";
 import type { AudioTrackInfo, AudioTrackKind } from "@/shared/types";
 import { AudioTrackRecorder } from "./audioTrackRecorder";
 import { CameraRecorder } from "./cameraRecorder";
@@ -21,21 +22,13 @@ let active: ActiveCapture | null = null;
 let prepared: OpenDevices | null = null;
 let finishing: InstantRecorder | null = null;
 
-function deviceConstraint(deviceId: string): ConstrainDOMString | undefined {
-  return deviceId === "default" ? undefined : { exact: deviceId };
-}
-
 async function openMicrophone(deviceId: string): Promise<MediaStreamTrack> {
-  const stream = await navigator.mediaDevices.getUserMedia({
-    audio: { deviceId: deviceConstraint(deviceId), echoCancellation: false, noiseSuppression: false, autoGainControl: false },
-  });
+  const stream = await navigator.mediaDevices.getUserMedia({ audio: microphoneConstraints(deviceId) });
   return stream.getAudioTracks()[0];
 }
 
 async function openCamera(deviceId: string): Promise<MediaStreamTrack> {
-  const stream = await navigator.mediaDevices.getUserMedia({
-    video: { deviceId: deviceConstraint(deviceId), width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } },
-  });
+  const stream = await navigator.mediaDevices.getUserMedia({ video: cameraConstraints(deviceId) });
   return stream.getVideoTracks()[0];
 }
 
@@ -121,12 +114,12 @@ async function start(capture: MediaCaptureRequest): Promise<void> {
 
   try {
     const devices = await takeDevices(capture);
-    if (devices.microphone) audio.push(new AudioTrackRecorder(projectId, "microphone", devices.microphone, 1, startedAt, forward));
+    if (devices.microphone) audio.push(new AudioTrackRecorder(projectId, "microphone", devices.microphone, 1, capture.microphoneGain, startedAt, forward));
     if (devices.camera) camera = new CameraRecorder(projectId, devices.camera, startedAt);
     if (capture.tabStreamId) {
       const tab = await openTabAudio(capture.tabStreamId);
       playback = tab.playback;
-      audio.push(new AudioTrackRecorder(projectId, "tab", tab.track, 2, startedAt, forward));
+      audio.push(new AudioTrackRecorder(projectId, "tab", tab.track, 2, 1, startedAt, forward));
     }
   } catch (error) {
     instant?.cancel();

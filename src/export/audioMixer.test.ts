@@ -35,7 +35,7 @@ describe("AudioMixer", () => {
     expect(new AudioMixer(tracks, DEFAULT_AUDIO_SETTINGS, span(0, 1)).read(0, 1)[0]).toBe(1);
     const muted = new AudioMixer(tracks, { ...DEFAULT_AUDIO_SETTINGS, tabVolume: 0 }, span(0, 1));
     expect(muted.read(0, 1)[0]).toBeCloseTo(0.8);
-    expect(new AudioMixer(tracks, { microphoneVolume: 0, tabVolume: 0 }, span(0, 1)).hasAudio).toBe(false);
+    expect(new AudioMixer(tracks, { ...DEFAULT_AUDIO_SETTINGS, microphoneVolume: 0, tabVolume: 0 }, span(0, 1)).hasAudio).toBe(false);
   });
 
   test("resamples tracks recorded at other rates", () => {
@@ -57,6 +57,30 @@ describe("AudioMixer", () => {
     const mixer = new AudioMixer([track({}, [constant(0.5, EXPORT_SAMPLE_RATE * 2)])], DEFAULT_AUDIO_SETTINGS, map);
     expect(mixer.read(Math.round(EXPORT_SAMPLE_RATE * 0.55), 1)[0]).toBe(0);
     expect(mixer.read(Math.round(EXPORT_SAMPLE_RATE * 0.8), 1)[0]).toBeCloseTo(0.5, 2);
+  });
+
+  describe("click sounds", () => {
+    const clickSettings = { ...DEFAULT_AUDIO_SETTINGS, clickSounds: true, clickVolume: 0.5 };
+    const clicks = (times: number[]) => ({ times, samples: [constant(0.4, 10), constant(0.2, 10)] });
+
+    test("are an audio source of their own, placed on the output timeline", () => {
+      const map = new TimeMap(0.5, 3, [{ id: "fast", start: 1, end: 2, rate: 2 }]);
+      const mixer = new AudioMixer([], clickSettings, map, clicks([0.75, 2.5]));
+      expect(mixer.hasAudio).toBe(true);
+      expect(mixer.read(Math.round(EXPORT_SAMPLE_RATE * 0.25), 1)[0]).toBeCloseTo(0.2);
+      expect(mixer.read(Math.round(EXPORT_SAMPLE_RATE * 1.5), 2)).toEqual(Float32Array.from([0.1, 0.1, 0.1, 0.1]));
+    });
+
+    test("skip clicks outside the trim and in ranges faster than 4x", () => {
+      const map = new TimeMap(1, 3, [{ id: "skip", start: 2, end: 2.5, rate: 8 }]);
+      const mixer = new AudioMixer([], clickSettings, map, clicks([0.5, 2.2, 3.5]));
+      expect(mixer.read(0, Math.ceil(map.outputDuration * EXPORT_SAMPLE_RATE)).some((value) => value !== 0)).toBe(false);
+    });
+
+    test("stay silent when turned off or muted", () => {
+      expect(new AudioMixer([], DEFAULT_AUDIO_SETTINGS, span(0, 1), clicks([0.5])).hasAudio).toBe(false);
+      expect(new AudioMixer([], { ...clickSettings, clickVolume: 0 }, span(0, 1), clicks([0.5])).hasAudio).toBe(false);
+    });
   });
 });
 

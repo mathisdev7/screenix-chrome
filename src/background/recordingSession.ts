@@ -1,5 +1,6 @@
 import { autoZoomClips } from "@/editor/lib/zoomClips";
-import type { CaptureSettings } from "@/shared/captureSettings";
+import { separateMediaSettings, type CaptureSettings } from "@/shared/captureSettings";
+import { readCameraBubbleStyle, type PageCameraBubble } from "@/shared/cameraBubbleStyle";
 import type { TabPoint } from "@/shared/countdown";
 import { addFrame, addPointerBatch, putProject } from "@/shared/db";
 import { INSTANT_HIDPI_LONG_SIDE, instantSettings } from "@/shared/instant";
@@ -37,7 +38,6 @@ async function createThumbnail(frame: Blob): Promise<{ thumbnail: Blob; width: n
 
 export class RecordingSession {
   readonly projectId: ProjectId = crypto.randomUUID();
-  readonly startedAt = Date.now();
   private readonly screencaster: Screencaster;
   private readonly trackerPorts = new Map<number, chrome.runtime.Port>();
   private readonly pendingWrites = new Set<Promise<void>>();
@@ -45,6 +45,8 @@ export class RecordingSession {
   private readonly pages: PageVisit[] = [];
   private readonly presses: PointerSample[] = [];
   private activeTabId: number | null = null;
+  private startPointer: TabPoint | null = null;
+  private startedAtMs = 0;
   private frameSeq = 0;
   private pointerSeq = 0;
   private sampleFrame: Blob | null = null;
@@ -55,17 +57,30 @@ export class RecordingSession {
   constructor(
     private readonly windowId: number,
     private readonly capture: CaptureSettings,
-    private startPointer: TabPoint | null,
+    private readonly cameraBubbleUrl: string | null,
     onCanceledByUser: () => void,
   ) {
     this.screencaster = new Screencaster(this.handleFrame, onCanceledByUser, this.isInstant ? INSTANT_HIDPI_LONG_SIDE : null);
+  }
+
+  get startedAt(): number {
+    return this.startedAtMs;
   }
 
   get isInstant(): boolean {
     return this.capture.mode === "instant";
   }
 
+  async prepare(tabId: number): Promise<void> {
+    await this.screencaster.attach(tabId).catch(() => undefined);
+  }
+
+  setStartPointer(pointer: TabPoint | null) {
+    this.startPointer = pointer;
+  }
+
   async start(): Promise<void> {
+    this.startedAtMs = Date.now();
     const [activeTab] = await chrome.tabs.query({ active: true, windowId: this.windowId });
     if (this.isInstant) {
       this.instant = {
@@ -74,7 +89,7 @@ export class RecordingSession {
         autoZoom: this.capture.instantZoom,
       };
     }
-    this.media = await MediaCapture.start(this.capture, this.projectId, this.startedAt, activeTab?.id ?? null, this.instant);
+    this.media = await MediaCapture.start(separateMediaSettings(this.capture), this.projectId, this.startedAt, activeTab?.id ?? null, this.instant);
     await chrome.scripting.unregisterContentScripts({ ids: [TRACKER_REGISTRATION_ID] }).catch(() => undefined);
     await chrome.scripting.registerContentScripts([{
       id: TRACKER_REGISTRATION_ID,
@@ -110,8 +125,15 @@ export class RecordingSession {
     });
     const pointer = this.startPointer?.tabId === tabId ? { x: this.startPointer.x, y: this.startPointer.y } : null;
     this.startPointer = null;
-    const start: TrackerControlMessage = { type: "start", pointer };
-    port.postMessage(start);
+    void this.cameraBubbleFor(port).then((cameraBubble) => {
+      const start: TrackerControlMessage = { type: "start", pointer, cameraBubble };
+      port.postMessage(start);
+    });
+  }
+
+  private async cameraBubbleFor(port: chrome.runtime.Port): Promise<PageCameraBubble | null> {
+    if (!this.cameraBubbleUrl || port.sender?.tab?.windowId !== this.windowId) return null;
+    return { url: this.cameraBubbleUrl, style: await readCameraBubbleStyle() };
   }
 
   async abort(): Promise<void> {

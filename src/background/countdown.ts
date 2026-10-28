@@ -1,4 +1,4 @@
-import type { CountdownCommand, CountdownReply, TabPoint } from "@/shared/countdown";
+import type { CountdownCamera, CountdownCommand, CountdownReply, TabPoint } from "@/shared/countdown";
 
 const OVERLAY_SCRIPT = "countdown-overlay.js";
 const TICK_MS = 100;
@@ -16,7 +16,7 @@ export class Countdown {
   private finished = false;
   private lastPointer: TabPoint | null = null;
 
-  constructor(seconds: number) {
+  constructor(seconds: number, private readonly camera: CountdownCamera | null) {
     this.endsAt = Date.now() + seconds * 1000;
     this.done = new Promise((resolve) => {
       this.settle = resolve;
@@ -37,7 +37,7 @@ export class Countdown {
     await Promise.all([
       chrome.action.setBadgeText({ text: "" }),
       chrome.action.setBadgeTextColor({ color: BADGE_DEFAULT_INK }),
-      this.hideOverlays(),
+      this.hideOverlays(completed),
     ]);
     return completed;
   }
@@ -56,7 +56,7 @@ export class Countdown {
       if (reply.type === "cancel") this.cancel();
     });
     port.onDisconnect.addListener(() => this.overlays.delete(port));
-    this.post(port, { type: "show", endsAt: this.endsAt });
+    this.post(port, { type: "show", endsAt: this.endsAt, camera: this.camera });
   }
 
   cancel() {
@@ -74,7 +74,7 @@ export class Countdown {
     await chrome.action.setBadgeText({ text: String(left) });
   }
 
-  private hideOverlays(): Promise<unknown> {
+  private hideOverlays(completed: boolean): Promise<unknown> {
     return Promise.all([...this.overlays].map((port) => new Promise<void>((resolve) => {
       const finish = () => {
         port.disconnect();
@@ -88,7 +88,7 @@ export class Countdown {
       });
       port.onDisconnect.addListener(() => resolve());
       setTimeout(finish, HIDE_TIMEOUT_MS);
-      this.post(port, { type: "hide" });
+      this.post(port, { type: "hide", completed });
     })));
   }
 

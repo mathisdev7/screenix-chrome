@@ -69,7 +69,7 @@ export class MediaCapture {
     const response = await sendToRecorder({
       target: OFFSCREEN_TARGET,
       type: "media/start",
-      capture: { projectId, startedAt, microphoneId: settings.microphoneId, cameraId: settings.cameraId, tabStreamId, instant },
+      capture: { projectId, startedAt, microphoneId: settings.microphoneId, microphoneGain: settings.microphoneGain, cameraId: settings.cameraId, tabStreamId, instant },
     });
     if (!response.ok) {
       await closeRecorderDocument();

@@ -7,7 +7,7 @@ export type InstantLook = "full" | "framed";
 
 export const INSTANT_LOOKS: readonly { value: InstantLook; label: string }[] = [
   { value: "full", label: "Edge to edge" },
-  { value: "framed", label: "With background" },
+  { value: "framed", label: "Background" },
 ];
 
 export const INSTANT_HIDPI_LONG_SIDE = 1920;

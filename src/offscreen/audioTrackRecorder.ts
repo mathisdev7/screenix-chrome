@@ -29,6 +29,7 @@ export class AudioTrackRecorder {
     private readonly kind: AudioTrackKind,
     private readonly track: MediaStreamTrack,
     private readonly channels: number,
+    private readonly gain: number,
     private readonly startedAt: number,
     private readonly onChunk: (chunk: LiveAudioChunk) => void,
   ) {
@@ -85,10 +86,10 @@ export class AudioTrackRecorder {
       if (this.channels === 1) {
         let sum = 0;
         for (const plane of planes) sum += plane[frame];
-        this.pushSample(toInt16(sum / planes.length));
+        this.pushSample(toInt16((sum / planes.length) * this.gain));
       } else {
         for (let channel = 0; channel < this.channels; channel++) {
-          this.pushSample(toInt16(planes[Math.min(channel, planes.length - 1)][frame]));
+          this.pushSample(toInt16(planes[Math.min(channel, planes.length - 1)][frame] * this.gain));
         }
       }
     }

@@ -28,6 +28,8 @@ export default defineConfig({
         popup: resolve(root, "popup.html"),
         permissions: resolve(root, "permissions.html"),
         recorder: resolve(root, "recorder.html"),
+        camera: resolve(root, "camera.html"),
+        cameraSetup: resolve(root, "camera-setup.html"),
         background: resolve(root, "src/background/index.ts"),
       },
       output: {

@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
+import { clickTimes } from "@/render/clickSounds";
 import { croppedSize } from "@/render/geometry";
 import { TimeMap } from "@/render/timeMap";
 import type { ProjectMedia } from "@/render/projectMedia";
@@ -67,7 +68,8 @@ function Editor({ media, onHome }: { media: ProjectMedia; onHome: () => void }) 
     clock.pause();
     setCropping((current) => !current);
   };
-  const hasClicks = useMemo(() => media.pointer.some((sample) => sample.kind === "down"), [media.pointer]);
+  const clicks = useMemo(() => clickTimes(media.pointer), [media.pointer]);
+  const hasClicks = clicks.length > 0;
 
   const selectZoom = useCallback((id: string | null) => {
     setSelectedZoomId(id);
@@ -91,7 +93,7 @@ function Editor({ media, onHome }: { media: ProjectMedia; onHome: () => void }) 
     changeZoom(createAutoZoom());
     selectZoom(null);
   };
-  useAudioPlayback(clock, media.audio, settings.audio);
+  useAudioPlayback(clock, media.audio, settings.audio, clicks);
   const [exportOpen, setExportOpen] = useState(false);
   const [shareDialog, setShareDialog] = useState<{ mode: "share" } | { mode: "manage"; share: ProjectShare } | null>(null);
   useEditorShortcuts(clock, undo, redo);
@@ -134,7 +136,7 @@ function Editor({ media, onHome }: { media: ProjectMedia; onHome: () => void }) 
           />
         );
       case "audio":
-        return <AudioPanel tracks={media.audio} audio={settings.audio} onChange={update} />;
+        return <AudioPanel tracks={media.audio} audio={settings.audio} hasClicks={hasClicks} onChange={update} />;
       case "ratio":
         return <RatioPanel aspectRatio={settings.aspectRatio} source={croppedSize(media.source, settings.crop)} backgroundEnabled={settings.background.enabled} onChange={update} />;
       case "background":

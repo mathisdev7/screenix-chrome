@@ -40,6 +40,7 @@ const SCREEN_EXPRESSION = "[screen.width, screen.height, devicePixelRatio]";
 
 export class Screencaster {
   private readonly attached = new Set<number>();
+  private readonly attaching = new Map<number, Promise<void>>();
   private readonly maxSizes = new Map<number, [number, number]>();
   private readonly watchdog: ReturnType<typeof setInterval>;
   private streamingTabId: number | null = null;
@@ -81,8 +82,17 @@ export class Screencaster {
     await Promise.all(tabs.map((tabId) => chrome.debugger.detach({ tabId }).catch(() => undefined)));
   }
 
-  private async attach(tabId: number) {
-    if (this.attached.has(tabId)) return;
+  attach(tabId: number): Promise<void> {
+    if (this.attached.has(tabId)) return Promise.resolve();
+    let pending = this.attaching.get(tabId);
+    if (!pending) {
+      pending = this.attachNow(tabId).finally(() => this.attaching.delete(tabId));
+      this.attaching.set(tabId, pending);
+    }
+    return pending;
+  }
+
+  private async attachNow(tabId: number) {
     await chrome.debugger.attach({ tabId }, PROTOCOL_VERSION);
     this.attached.add(tabId);
     await chrome.debugger.sendCommand({ tabId }, "Page.enable");

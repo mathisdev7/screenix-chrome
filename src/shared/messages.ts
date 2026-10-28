@@ -1,3 +1,4 @@
+import type { PageCameraBubble } from "./cameraBubbleStyle";
 import type { PagePoint } from "./countdown";
 import type { EditorSettings } from "./settings";
 import type { AudioTrackInfo, CameraInfo, CapturedPointerSample, ProjectId } from "./types";
@@ -6,7 +7,7 @@ export const POINTER_PORT_NAME = "screenix-pointer";
 
 export type PointerPortMessage = { type: "samples"; samples: CapturedPointerSample[] };
 
-export type TrackerControlMessage = { type: "start"; pointer: PagePoint | null } | { type: "stop" };
+export type TrackerControlMessage = { type: "start"; pointer: PagePoint | null; cameraBubble: PageCameraBubble | null } | { type: "stop" };
 
 export type RecordingStatus =
   | { state: "idle" }
@@ -49,6 +50,7 @@ export interface CaptureDevices {
 
 export interface MediaCaptureRequest extends CaptureDevices {
   projectId: ProjectId;
+  microphoneGain: number;
   startedAt: number;
   tabStreamId: string | null;
   instant: InstantRenderRequest | null;

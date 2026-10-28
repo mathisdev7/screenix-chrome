@@ -1,4 +1,5 @@
-import { COUNTDOWN_PORT_NAME, type CountdownCommand, type CountdownReply, type PagePoint } from "@/shared/countdown";
+import { COUNTDOWN_PORT_NAME, type CountdownCamera, type CountdownCommand, type CountdownReply, type PagePoint } from "@/shared/countdown";
+import { handOverCameraBubble, hideCameraBubble, showCameraBubble } from "./cameraBubble";
 
 const TICK_MS = 100;
 
@@ -95,6 +96,7 @@ function afterRepaint(callback: () => void) {
 const port = chrome.runtime.connect({ name: COUNTDOWN_PORT_NAME });
 let hide: (() => void) | null = null;
 let pointer: PagePoint | null = null;
+let camera: CountdownCamera | null = null;
 
 const onPointerMove = (event: PointerEvent) => {
   pointer = { x: event.clientX / window.innerWidth, y: event.clientY / window.innerHeight };
@@ -114,10 +116,15 @@ port.onMessage.addListener((command: CountdownCommand) => {
   if (command.type === "show") {
     hide?.();
     hide = showCountdown(port, command.endsAt);
+    camera = command.camera;
+    if (camera) showCameraBubble(camera);
     return;
   }
   hide?.();
   hide = null;
+  if (camera?.recorded && command.completed) handOverCameraBubble();
+  else hideCameraBubble();
+  camera = null;
   stopTrackingPointer();
   afterRepaint(() => {
     const reply: CountdownReply = { type: "hidden", pointer };
@@ -127,5 +134,6 @@ port.onMessage.addListener((command: CountdownCommand) => {
 
 port.onDisconnect.addListener(() => {
   hide?.();
+  if (camera) hideCameraBubble();
   stopTrackingPointer();
 });

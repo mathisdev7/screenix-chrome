@@ -63,6 +63,8 @@ export interface CropRect {
 export interface AudioSettings {
   microphoneVolume: number;
   tabVolume: number;
+  clickSounds: boolean;
+  clickVolume: number;
 }
 
 export interface TrimRange {
@@ -154,6 +156,8 @@ export const FULL_CROP: CropRect = { x: 0, y: 0, width: 1, height: 1 };
 export const DEFAULT_AUDIO_SETTINGS: AudioSettings = {
   microphoneVolume: 1,
   tabVolume: 1,
+  clickSounds: false,
+  clickVolume: 1,
 };
 
 export function createDefaultSettings(): EditorSettings {

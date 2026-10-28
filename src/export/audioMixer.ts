@@ -1,4 +1,5 @@
 import { trackVolume, type LoadedAudioTrack } from "@/render/audioTracks";
+import { clickSampleAt, type ClickSounds } from "@/render/clickSounds";
 import { MAX_AUDIBLE_RATE, type TimeMap } from "@/render/timeMap";
 import type { AudioSettings } from "@/shared/settings";
 import { EXPORT_CHANNELS, EXPORT_SAMPLE_RATE } from "./audioEncoding";
@@ -44,15 +45,30 @@ function renderOnTimeline(track: LoadedAudioTrack, map: TimeMap, outputLength: n
   return output;
 }
 
+function renderClicks({ times, samples }: ClickSounds, map: TimeMap, outputLength: number): Float32Array[] {
+  const output = new Float32Array(outputLength);
+  times.forEach((time, index) => {
+    if (time < map.sourceStart || time >= map.sourceEnd || map.rateAt(time) > MAX_AUDIBLE_RATE) return;
+    const sample = clickSampleAt(samples, index);
+    const at = Math.round(map.outputAt(time) * EXPORT_SAMPLE_RATE);
+    const length = Math.min(sample.length, outputLength - at);
+    for (let frame = 0; frame < length; frame++) output[at + frame] += sample[frame];
+  });
+  return Array.from({ length: EXPORT_CHANNELS }, () => output);
+}
+
 export class AudioMixer {
   private readonly sources: MixSource[];
 
-  constructor(tracks: readonly LoadedAudioTrack[], settings: AudioSettings, map: TimeMap) {
+  constructor(tracks: readonly LoadedAudioTrack[], settings: AudioSettings, map: TimeMap, clicks: ClickSounds | null = null) {
     const outputLength = Math.ceil(map.outputDuration * EXPORT_SAMPLE_RATE);
     this.sources = tracks
       .map((track) => ({ track, volume: trackVolume(track.info.kind, settings) }))
       .filter(({ volume }) => volume > 0)
       .map(({ track, volume }) => ({ volume, planes: renderOnTimeline(track, map, outputLength) }));
+    if (clicks && clicks.times.length > 0 && settings.clickSounds && settings.clickVolume > 0) {
+      this.sources.push({ volume: settings.clickVolume, planes: renderClicks(clicks, map, outputLength) });
+    }
   }
 
   get hasAudio(): boolean {

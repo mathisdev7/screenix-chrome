@@ -1,5 +1,6 @@
 import { Compositor, type SceneInputs } from "@/render/compositor";
 import { encoderSizeForShortSide, outputAspect, type Size } from "@/render/geometry";
+import { clickTimes, loadClickSamples } from "@/render/clickSounds";
 import type { ProjectMedia } from "@/render/projectMedia";
 import { TimeMap } from "@/render/timeMap";
 import { loadWatermark, paintWatermark } from "@/render/watermark";
@@ -47,7 +48,8 @@ export async function exportVideo(
   const watermark = watermarked ? await loadWatermark() : null;
   const frames = media.frames.clone();
   const camera = inputs.settings.camera.enabled ? media.camera?.clone() ?? null : null;
-  const mixer = new AudioMixer(media.audio, inputs.settings.audio, map);
+  const clicks = inputs.settings.audio.clickSounds ? { times: clickTimes(media.pointer), samples: await loadClickSamples() } : null;
+  const mixer = new AudioMixer(media.audio, inputs.settings.audio, map, clicks);
   const totalAudioFrames = Math.round((frameCount / options.fps) * EXPORT_SAMPLE_RATE);
   let audioFrame = 0;
   const encoder = await VideoFileEncoder.create(size, options.fps, options, mixer.hasAudio);
