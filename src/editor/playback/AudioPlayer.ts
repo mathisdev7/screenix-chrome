@@ -1,6 +1,6 @@
 import { trackVolume, type LoadedAudioTrack } from "@/render/audioTracks";
 import { CLICK_SAMPLE_RATE, clickSampleAt, loadClickSamples, type ClickSample } from "@/render/clickSounds";
-import { MAX_AUDIBLE_RATE } from "@/render/timeMap";
+import { MAX_AUDIBLE_RATE, type TimeMap } from "@/render/timeMap";
 import { encodeWav } from "@/render/wav";
 import type { AudioSettings } from "@/shared/settings";
 import type { PlaybackSnapshot } from "./PlaybackClock";
@@ -48,15 +48,16 @@ export class AudioPlayer {
     if (this.clickGain) this.clickGain.gain.value = settings.clickVolume;
   }
 
-  sync({ time, playing }: PlaybackSnapshot, rate: number) {
+  sync({ time, playing }: PlaybackSnapshot, map: TimeMap) {
     const previous = this.lastTime;
     this.lastTime = playing ? time : null;
     if (!playing) {
       for (const { element } of this.outputs) element.pause();
       return;
     }
+    const rate = map.rateAt(time);
     for (const output of this.ensureOutputs()) this.syncTrack(output, time, rate);
-    if (previous !== null) this.playClicks(previous, time, rate);
+    if (previous !== null) this.playClicks(previous, time, map);
   }
 
   dispose() {
@@ -89,11 +90,11 @@ export class AudioPlayer {
     return this.clickGain;
   }
 
-  private playClicks(from: number, to: number, rate: number) {
-    if (!this.settings.clickSounds || this.clickBuffers.length === 0 || rate > MAX_AUDIBLE_RATE) return;
-    if (to <= from || to - from > MAX_CLICK_STEP_SECONDS * rate) return;
+  private playClicks(from: number, to: number, map: TimeMap) {
+    if (!this.settings.clickSounds || this.clickBuffers.length === 0) return;
+    if (to <= from || map.outputAt(to) - map.outputAt(from) > MAX_CLICK_STEP_SECONDS) return;
     this.clicks.forEach((time, index) => {
-      if (time <= from || time > to) return;
+      if (time <= from || time > to || !map.includes(time) || map.rateAt(time) > MAX_AUDIBLE_RATE) return;
       const output = this.clickOutput();
       const source = new AudioBufferSourceNode(output.context, { buffer: clickSampleAt(this.clickBuffers, index) });
       source.connect(output);

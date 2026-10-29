@@ -5,6 +5,8 @@ import type { AudioSettings } from "@/shared/settings";
 import { EXPORT_CHANNELS, EXPORT_SAMPLE_RATE } from "./audioEncoding";
 import { timeStretch } from "./timeStretch";
 
+const SPLICE_FADE_SECONDS = 0.01;
+
 interface MixSource {
   volume: number;
   planes: Float32Array[];
@@ -30,25 +32,39 @@ function extract(track: LoadedAudioTrack, planes: readonly Float32Array[], fromS
   });
 }
 
+function fadeSplices(planes: readonly Float32Array[], fadeIn: boolean, fadeOut: boolean) {
+  const length = Math.min(Math.round(SPLICE_FADE_SECONDS * EXPORT_SAMPLE_RATE), Math.floor(planes[0].length / 2));
+  for (const plane of planes) {
+    for (let frame = 0; frame < length; frame++) {
+      const gain = frame / length;
+      if (fadeIn) plane[frame] *= gain;
+      if (fadeOut) plane[plane.length - 1 - frame] *= gain;
+    }
+  }
+}
+
 function renderOnTimeline(track: LoadedAudioTrack, map: TimeMap, outputLength: number): Float32Array[] {
   const planes = trackPlanes(track);
   const output = planes.map(() => new Float32Array(outputLength));
-  for (const segment of map.segments) {
+  map.segments.forEach((segment, index) => {
     const at = Math.round(segment.outputStart * EXPORT_SAMPLE_RATE);
     const sourceLength = Math.round((segment.sourceEnd - segment.sourceStart) * EXPORT_SAMPLE_RATE);
     const targetLength = Math.min(outputLength - at, Math.round(((segment.sourceEnd - segment.sourceStart) / segment.rate) * EXPORT_SAMPLE_RATE));
-    if (targetLength <= 0 || sourceLength <= 0 || segment.rate > MAX_AUDIBLE_RATE) continue;
+    if (targetLength <= 0 || sourceLength <= 0 || segment.rate > MAX_AUDIBLE_RATE) return;
     const source = extract(track, planes, segment.sourceStart, sourceLength);
-    const timed = segment.rate === 1 ? source : timeStretch(source, targetLength);
-    timed.forEach((plane, channel) => output[channel].set(plane.subarray(0, targetLength), at));
-  }
+    const timed = (segment.rate === 1 ? source : timeStretch(source, targetLength)).map((plane) => plane.subarray(0, targetLength));
+    const previous = map.segments[index - 1];
+    const next = map.segments[index + 1];
+    fadeSplices(timed, previous !== undefined && previous.sourceEnd < segment.sourceStart, next !== undefined && next.sourceStart > segment.sourceEnd);
+    timed.forEach((plane, channel) => output[channel].set(plane, at));
+  });
   return output;
 }
 
 function renderClicks({ times, samples }: ClickSounds, map: TimeMap, outputLength: number): Float32Array[] {
   const output = new Float32Array(outputLength);
   times.forEach((time, index) => {
-    if (time < map.sourceStart || time >= map.sourceEnd || map.rateAt(time) > MAX_AUDIBLE_RATE) return;
+    if (!map.includes(time) || map.rateAt(time) > MAX_AUDIBLE_RATE) return;
     const sample = clickSampleAt(samples, index);
     const at = Math.round(map.outputAt(time) * EXPORT_SAMPLE_RATE);
     const length = Math.min(sample.length, outputLength - at);

@@ -25,10 +25,7 @@ export function useAudioPlayback(clock: PlaybackClock, tracks: readonly LoadedAu
   const [player] = useState(() => new AudioPlayer(tracks, settings, clicks));
 
   useEffect(() => {
-    const sync = () => {
-      const snapshot = clock.getSnapshot();
-      player.sync(snapshot, clock.map.rateAt(snapshot.time));
-    };
+    const sync = () => player.sync(clock.getSnapshot(), clock.map);
     const unsubscribe = clock.subscribe(sync);
     return () => {
       unsubscribe();

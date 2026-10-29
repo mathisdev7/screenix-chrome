@@ -5,6 +5,7 @@
   --editor-timeline-video: linear-gradient(180deg, #d6c9aa, #c8b995);
   --editor-timeline-speed: linear-gradient(180deg, #9fb7e8, #86a1d8);
   --editor-timeline-zoom: linear-gradient(180deg, #b3b0f2, #9a96e6);
+  --editor-timeline-cut: linear-gradient(180deg, #eba7a0, #dc8d85);
 }
 
 .gold-button {
@@ -66,6 +67,18 @@
 
 .timeline-clip-zoom {
   background: var(--editor-timeline-zoom);
+}
+
+.timeline-clip-cut {
+  background: var(--editor-timeline-cut);
+}
+
+.timeline-cut-gap {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: repeating-linear-gradient(-45deg, rgba(28, 26, 21, 0.55) 0 4px, rgba(28, 26, 21, 0.4) 4px 8px);
+  box-shadow: inset 1px 0 rgba(255, 255, 255, 0.5), inset -1px 0 rgba(255, 255, 255, 0.5);
 }
 
 .timeline-clip-lane[data-selected] {

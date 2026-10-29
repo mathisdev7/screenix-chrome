@@ -79,6 +79,12 @@ export interface SpeedClip {
   rate: number;
 }
 
+export interface CutClip {
+  id: string;
+  start: number;
+  end: number;
+}
+
 export type ZoomMode = "auto" | "manual";
 
 export interface ZoomClip {
@@ -102,6 +108,7 @@ export interface EditorSettings {
   crop: CropRect;
   trim: TrimRange;
   speed: SpeedClip[];
+  cuts: CutClip[];
   zoom: ZoomClip[];
   pageUrls: Record<string, string>;
 }
@@ -170,6 +177,7 @@ export function createDefaultSettings(): EditorSettings {
     crop: { ...FULL_CROP },
     trim: { start: 0, end: null },
     speed: [],
+    cuts: [],
     zoom: [],
     pageUrls: {},
   };
@@ -186,6 +194,7 @@ export function withDefaults(settings: Partial<EditorSettings> | null | undefine
     crop: { ...defaults.crop, ...settings?.crop },
     trim: { ...defaults.trim, ...settings?.trim },
     speed: Array.isArray(settings?.speed) ? settings.speed : defaults.speed,
+    cuts: Array.isArray(settings?.cuts) ? settings.cuts : defaults.cuts,
     zoom: Array.isArray(settings?.zoom) ? settings.zoom : defaults.zoom,
     pageUrls: { ...settings?.pageUrls },
   };
@@ -200,6 +209,7 @@ export interface SettingsPatch {
   crop?: CropRect;
   trim?: Partial<TrimRange>;
   speed?: SpeedClip[];
+  cuts?: CutClip[];
   zoom?: ZoomClip[];
   pageUrls?: Record<string, string>;
 }
@@ -214,6 +224,7 @@ export function applySettingsPatch(settings: EditorSettings, patch: SettingsPatc
     crop: patch.crop ?? settings.crop,
     trim: patch.trim ? { ...settings.trim, ...patch.trim } : settings.trim,
     speed: patch.speed ?? settings.speed,
+    cuts: patch.cuts ?? settings.cuts,
     zoom: patch.zoom ?? settings.zoom,
     pageUrls: patch.pageUrls ?? settings.pageUrls,
   };

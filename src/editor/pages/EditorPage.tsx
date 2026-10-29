@@ -54,10 +54,11 @@ function Editor({ media, onHome }: { media: ProjectMedia; onHome: () => void }) 
   const { theme, toggleTheme } = useTheme();
   const { license, loading: licenseLoading } = useLicense();
   const licensed = licenseLoading || license !== null;
-  const { trim, speed } = settings;
-  const timeMap = useMemo(() => TimeMap.from(trim, speed, project.duration), [trim, speed, project.duration]);
+  const { trim, speed, cuts } = settings;
+  const timeMap = useMemo(() => TimeMap.from(trim, speed, cuts, project.duration), [trim, speed, cuts, project.duration]);
   const clock = usePlaybackClock(timeMap);
   const changeSpeed = useCallback((next: typeof speed, coalesceKey?: string) => update({ speed: next }, coalesceKey), [update]);
+  const changeCuts = useCallback((next: typeof cuts, coalesceKey?: string) => update({ cuts: next }, coalesceKey), [update]);
   const changeZoom = useCallback((next: ZoomClip[], coalesceKey?: string) => update({ zoom: next }, coalesceKey), [update]);
   const [sidebarTab, setSidebarTab] = useState<SidebarTab>("cursor");
   const [selectedZoomId, setSelectedZoomId] = useState<string | null>(null);
@@ -173,7 +174,7 @@ function Editor({ media, onHome }: { media: ProjectMedia; onHome: () => void }) 
         onShare={() => setShareDialog(project.share ? { mode: "manage", share: project.share } : { mode: "share" })}
         onExport={() => setExportOpen(true)}
       />
-      <div className="grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)_auto] bg-[var(--editor-workspace-background)]">
+      <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] grid-rows-[minmax(0,1fr)_auto] bg-[var(--editor-workspace-background)]">
         <div className="flex min-h-0">
           <section className="order-1 flex min-w-0 flex-1 flex-col px-3 pb-2 pt-3">
             {inputs ? <PreviewPane media={media} inputs={inputs} clock={clock} cropping={cropping} onCropDone={stopCropping} onChange={update} /> : <CenteredMessage>Preparing preview…</CenteredMessage>}
@@ -185,10 +186,12 @@ function Editor({ media, onHome }: { media: ProjectMedia; onHome: () => void }) 
           duration={project.duration}
           map={timeMap}
           speed={speed}
+          cuts={cuts}
           zoomClips={settings.zoom}
           selectedZoomId={selectedZoomId}
           onTrimChange={(next) => update({ trim: next }, "trim")}
           onSpeedChange={changeSpeed}
+          onCutsChange={changeCuts}
           onZoomChange={changeZoom}
           onSelectZoom={selectZoom}
           onAddZoom={addZoom}

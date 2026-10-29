@@ -44,7 +44,7 @@ export class PlaybackClock {
   play() {
     if (this.snapshot.playing) return;
     const atEnd = this.timeMap.outputAt(this.snapshot.time) >= this.timeMap.outputDuration - END_TOLERANCE_SECONDS;
-    const time = atEnd ? this.timeMap.sourceStart : this.snapshot.time;
+    const time = atEnd ? this.timeMap.sourceAt(0) : this.snapshot.time;
     this.anchor(time);
     this.emit({ time, playing: true });
     this.frame = requestAnimationFrame(this.tick);
@@ -76,7 +76,7 @@ export class PlaybackClock {
     const output = this.anchorOutput + (now - this.anchorNow) / 1000;
     if (output >= this.timeMap.outputDuration) {
       this.frame = null;
-      this.emit({ time: this.timeMap.sourceEnd, playing: false });
+      this.emit({ time: this.timeMap.sourceAt(this.timeMap.outputDuration), playing: false });
       return;
     }
     this.emit({ time: this.timeMap.sourceAt(output), playing: true });

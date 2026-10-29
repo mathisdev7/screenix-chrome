@@ -1,4 +1,4 @@
-import { IconBolt, IconCrop, IconMinus, IconPlayerPauseFilled, IconPlayerPlayFilled, IconPlayerTrackNextFilled, IconPlayerTrackPrevFilled, IconPlus, IconZoomIn } from "@tabler/icons-react";
+import { IconBolt, IconCrop, IconMinus, IconPlayerPauseFilled, IconPlayerPlayFilled, IconPlayerTrackNextFilled, IconPlayerTrackPrevFilled, IconPlus, IconScissors, IconZoomIn } from "@tabler/icons-react";
 import clsx from "clsx";
 import type { ReactNode } from "react";
 import { formatClock } from "../../lib/format";
@@ -33,7 +33,7 @@ function AddButton({ title, active = false, onClick, children }: { title: string
   );
 }
 
-export function TimelineToolbar({ time, duration, playing, zoom, onToggle, onStep, onZoom, onAddSpeed, onAddZoom, cropping, cropped, onCrop }: {
+export function TimelineToolbar({ time, duration, playing, zoom, onToggle, onStep, onZoom, onAddSpeed, onAddCut, onAddZoom, cropping, cropped, onCrop }: {
   time: number;
   duration: number;
   playing: boolean;
@@ -42,6 +42,7 @@ export function TimelineToolbar({ time, duration, playing, zoom, onToggle, onSte
   onStep: (direction: -1 | 1) => void;
   onZoom: (zoom: number) => void;
   onAddSpeed: () => void;
+  onAddCut: () => void;
   onAddZoom: () => void;
   cropping: boolean;
   cropped: boolean;
@@ -61,6 +62,10 @@ export function TimelineToolbar({ time, duration, playing, zoom, onToggle, onSte
           <AddButton title="Speed up or slow down part of the video, starting at the playhead" onClick={onAddSpeed}>
             <IconBolt size={13} />
             Add speed
+          </AddButton>
+          <AddButton title="Remove part of the video, starting at the playhead" onClick={onAddCut}>
+            <IconScissors size={13} />
+            Cut
           </AddButton>
           <AddButton title="Crop the recording" active={cropping} onClick={onCrop}>
             <IconCrop size={13} />

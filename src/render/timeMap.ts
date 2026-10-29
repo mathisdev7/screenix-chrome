@@ -1,4 +1,4 @@
-import type { EditorSettings, SpeedClip, TrimRange } from "@/shared/settings";
+import type { CutClip, EditorSettings, SpeedClip, TrimRange } from "@/shared/settings";
 
 export interface TimeSegment {
   sourceStart: number;
@@ -17,15 +17,24 @@ export function trimBounds(trim: TrimRange, duration: number): { start: number; 
   return { start, end };
 }
 
-export function trimmedRange(settings: EditorSettings, duration: number): { start: number; end: number } {
-  return trimBounds(settings.trim, duration);
-}
-
 function clipsWithin(clips: readonly SpeedClip[], start: number, end: number): SpeedClip[] {
   return clips
     .map((clip) => ({ ...clip, start: Math.max(clip.start, start), end: Math.min(clip.end, end) }))
     .filter((clip) => clip.end - clip.start > EPSILON && clip.rate > 0)
     .sort((a, b) => a.start - b.start);
+}
+
+function keptRanges(start: number, end: number, cuts: readonly CutClip[]): { start: number; end: number }[] {
+  const ranges: { start: number; end: number }[] = [];
+  let from = start;
+  for (const cut of [...cuts].sort((a, b) => a.start - b.start)) {
+    if (cut.start >= end) break;
+    if (cut.end <= from) continue;
+    if (cut.start > from) ranges.push({ start: from, end: cut.start });
+    from = Math.max(from, cut.end);
+  }
+  if (end > from) ranges.push({ start: from, end });
+  return ranges;
 }
 
 export class TimeMap {
@@ -34,23 +43,25 @@ export class TimeMap {
   readonly sourceEnd: number;
   readonly outputDuration: number;
 
-  constructor(start: number, end: number, clips: readonly SpeedClip[]) {
+  constructor(start: number, end: number, clips: readonly SpeedClip[], cuts: readonly CutClip[] = []) {
     const segments: TimeSegment[] = [];
-    let source = start;
     let output = 0;
-    const push = (until: number, rate: number) => {
-      if (until - source <= EPSILON) return;
-      segments.push({ sourceStart: source, sourceEnd: until, outputStart: output, rate });
-      output += (until - source) / rate;
-      source = until;
-    };
-    for (const clip of clipsWithin(clips, start, end)) {
-      if (clip.start < source - EPSILON) continue;
-      push(clip.start, 1);
-      push(clip.end, clip.rate);
+    for (const kept of keptRanges(start, end, cuts)) {
+      let source = kept.start;
+      const push = (until: number, rate: number) => {
+        if (until - source <= EPSILON) return;
+        segments.push({ sourceStart: source, sourceEnd: until, outputStart: output, rate });
+        output += (until - source) / rate;
+        source = until;
+      };
+      for (const clip of clipsWithin(clips, kept.start, kept.end)) {
+        if (clip.start < source - EPSILON) continue;
+        push(clip.start, 1);
+        push(clip.end, clip.rate);
+      }
+      push(kept.end, 1);
     }
-    push(end, 1);
-    if (segments.length === 0) segments.push({ sourceStart: start, sourceEnd: end, outputStart: 0, rate: 1 });
+    if (segments.length === 0) segments.push({ sourceStart: start, sourceEnd: start, outputStart: 0, rate: 1 });
     this.segments = segments;
     this.sourceStart = start;
     this.sourceEnd = end;
@@ -58,12 +69,12 @@ export class TimeMap {
   }
 
   static fromSettings(settings: EditorSettings, duration: number): TimeMap {
-    return TimeMap.from(settings.trim, settings.speed, duration);
+    return TimeMap.from(settings.trim, settings.speed, settings.cuts, duration);
   }
 
-  static from(trim: TrimRange, speed: readonly SpeedClip[], duration: number): TimeMap {
+  static from(trim: TrimRange, speed: readonly SpeedClip[], cuts: readonly CutClip[], duration: number): TimeMap {
     const { start, end } = trimBounds(trim, duration);
-    return new TimeMap(start, end, speed);
+    return new TimeMap(start, end, speed, cuts);
   }
 
   private segmentForSource(source: number): TimeSegment {
@@ -86,9 +97,13 @@ export class TimeMap {
   }
 
   outputAt(source: number): number {
-    const clamped = Math.min(Math.max(source, this.sourceStart), this.sourceEnd);
-    const segment = this.segmentForSource(clamped);
+    const segment = this.segmentForSource(source);
+    const clamped = Math.min(Math.max(source, segment.sourceStart), segment.sourceEnd);
     return segment.outputStart + (clamped - segment.sourceStart) / segment.rate;
+  }
+
+  includes(source: number): boolean {
+    return this.segments.some((segment) => source >= segment.sourceStart && source < segment.sourceEnd);
   }
 
   rateAt(source: number): number {

@@ -59,6 +59,19 @@ describe("AudioMixer", () => {
     expect(mixer.read(Math.round(EXPORT_SAMPLE_RATE * 0.8), 1)[0]).toBeCloseTo(0.5, 2);
   });
 
+  test("removes cut ranges and fades the splice", () => {
+    const ramp = Float32Array.from({ length: EXPORT_SAMPLE_RATE * 3 }, (_, index) => (index < EXPORT_SAMPLE_RATE || index >= EXPORT_SAMPLE_RATE * 2 ? 0.5 : -0.5));
+    const map = new TimeMap(0, 3, [], [{ id: "cut", start: 1, end: 2 }]);
+    const mixer = new AudioMixer([track({}, [ramp])], DEFAULT_AUDIO_SETTINGS, map);
+    expect(map.outputDuration).toBeCloseTo(2);
+    expect(mixer.read(0, Math.ceil(map.outputDuration * EXPORT_SAMPLE_RATE)).every((value) => value >= 0)).toBe(true);
+    const frame = (seconds: number) => mixer.read(Math.round(seconds * EXPORT_SAMPLE_RATE), 1)[0];
+    expect(frame(0.5)).toBeCloseTo(0.5);
+    expect(frame(1 - 1 / EXPORT_SAMPLE_RATE)).toBeCloseTo(0, 1);
+    expect(frame(1)).toBeCloseTo(0);
+    expect(frame(1.5)).toBeCloseTo(0.5);
+  });
+
   describe("click sounds", () => {
     const clickSettings = { ...DEFAULT_AUDIO_SETTINGS, clickSounds: true, clickVolume: 0.5 };
     const clicks = (times: number[]) => ({ times, samples: [constant(0.4, 10), constant(0.2, 10)] });
@@ -74,6 +87,12 @@ describe("AudioMixer", () => {
     test("skip clicks outside the trim and in ranges faster than 4x", () => {
       const map = new TimeMap(1, 3, [{ id: "skip", start: 2, end: 2.5, rate: 8 }]);
       const mixer = new AudioMixer([], clickSettings, map, clicks([0.5, 2.2, 3.5]));
+      expect(mixer.read(0, Math.ceil(map.outputDuration * EXPORT_SAMPLE_RATE)).some((value) => value !== 0)).toBe(false);
+    });
+
+    test("skip clicks inside cuts", () => {
+      const map = new TimeMap(0, 3, [], [{ id: "cut", start: 1, end: 2 }]);
+      const mixer = new AudioMixer([], clickSettings, map, clicks([1.5]));
       expect(mixer.read(0, Math.ceil(map.outputDuration * EXPORT_SAMPLE_RATE)).some((value) => value !== 0)).toBe(false);
     });
 

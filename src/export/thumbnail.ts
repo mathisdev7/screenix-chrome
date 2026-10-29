@@ -1,7 +1,7 @@
 import { Compositor, type SceneInputs } from "@/render/compositor";
 import { encoderSizeForShortSide, outputAspect } from "@/render/geometry";
 import type { ProjectMedia } from "@/render/projectMedia";
-import { trimmedRange } from "@/render/timeMap";
+import { TimeMap } from "@/render/timeMap";
 
 const THUMBNAIL_SHORT_SIDE = 720;
 const THUMBNAIL_QUALITY = 0.82;
@@ -11,7 +11,7 @@ export async function renderThumbnail(media: ProjectMedia, inputs: SceneInputs):
   const canvas = new OffscreenCanvas(size.width, size.height);
   const ctx = canvas.getContext("2d", { alpha: false });
   if (!ctx) return null;
-  const { start } = trimmedRange(inputs.settings, media.project.duration);
+  const start = TimeMap.fromSettings(inputs.settings, media.project.duration).sourceAt(0);
   const frames = media.frames.clone();
   const camera = inputs.settings.camera.enabled ? media.camera?.clone() ?? null : null;
   try {
