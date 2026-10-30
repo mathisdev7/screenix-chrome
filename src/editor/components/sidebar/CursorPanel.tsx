@@ -1,3 +1,6 @@
+import { IconChevronDown } from "@tabler/icons-react";
+import clsx from "clsx";
+import { useState } from "react";
 import { cursorAssetUrl } from "@/render/cursor/theme";
 import { CURSOR_THEMES } from "@/shared/cursorThemes";
 import { DEFAULT_CURSOR_SETTINGS, type CursorSettings, type SettingsPatch } from "@/shared/settings";
@@ -26,6 +29,42 @@ function swayLabel(value: number): string {
   return "Heavy";
 }
 
+function ThemePicker({ theme, onChange }: {
+  theme: CursorSettings["theme"];
+  onChange: (theme: CursorSettings["theme"]) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const current = CURSOR_THEMES.find(({ id }) => id === theme) ?? CURSOR_THEMES[0];
+
+  return (
+    <Section title="Theme">
+      <button
+        type="button"
+        aria-expanded={open}
+        className="sidebar-choice flex h-10 w-full items-center gap-2 px-2.5 text-[11px]"
+        onClick={() => setOpen((value) => !value)}
+      >
+        <img src={cursorAssetUrl(current.id, "default")} alt="" className="size-5 shrink-0 object-contain" />
+        <span className="flex-1 truncate text-left">{current.label}</span>
+        <span className="flex items-center gap-1 text-muted-foreground">
+          {open ? "Done" : "Change"}
+          <IconChevronDown size={13} className={clsx("transition-transform", open && "rotate-180")} />
+        </span>
+      </button>
+      {open && (
+        <div className="grid grid-cols-3 gap-1.5">
+          {CURSOR_THEMES.map(({ id, label }) => (
+            <ChoiceButton key={id} active={theme === id} className="flex h-9 items-center gap-1.5 px-2 text-[11px]" onClick={() => onChange(id)}>
+              <img src={cursorAssetUrl(id, "default")} alt="" className="size-4 shrink-0 object-contain" />
+              <span className="truncate">{label}</span>
+            </ChoiceButton>
+          ))}
+        </div>
+      )}
+    </Section>
+  );
+}
+
 export function CursorPanel({ cursor, onChange }: {
   cursor: CursorSettings;
   onChange: (patch: SettingsPatch, coalesceKey?: string) => void;
@@ -36,6 +75,8 @@ export function CursorPanel({ cursor, onChange }: {
     speed: DEFAULT_CURSOR_SETTINGS.speed,
     sway: DEFAULT_CURSOR_SETTINGS.sway,
     motionBlur: DEFAULT_CURSOR_SETTINGS.motionBlur,
+  };
+  const clickDefaults = {
     clickEffect: DEFAULT_CURSOR_SETTINGS.clickEffect,
     clickEffectIntensity: DEFAULT_CURSOR_SETTINGS.clickEffectIntensity,
   };
@@ -44,21 +85,7 @@ export function CursorPanel({ cursor, onChange }: {
 
   return (
     <div className="space-y-5">
-      <Section title="Theme">
-        <div className="grid grid-cols-2 gap-1.5">
-          {CURSOR_THEMES.map(({ id, label }) => (
-            <ChoiceButton
-              key={id}
-              active={cursor.theme === id}
-              className="flex h-10 items-center gap-2 px-2.5 text-[11px]"
-              onClick={() => onChange({ cursor: { theme: id } })}
-            >
-              <img src={cursorAssetUrl(id, "default")} alt="" className="size-5 shrink-0 object-contain" />
-              <span className="truncate">{label}</span>
-            </ChoiceButton>
-          ))}
-        </div>
-      </Section>
+      <ThemePicker theme={cursor.theme} onChange={(theme) => onChange({ cursor: { theme } })} />
 
       <Section title="Appearance" onReset={() => onChange({ cursor: appearanceDefaults })} resetDisabled={isDefault(appearanceDefaults)}>
         <SliderRow label="Size" value={cursor.size} min={1} max={8} step={0.1} onChange={set("size")} format={(value) => `${value.toFixed(1)}%`} />
@@ -69,6 +96,9 @@ export function CursorPanel({ cursor, onChange }: {
         <SliderRow label="Speed" value={cursor.speed} min={0} max={1} step={0.1} onChange={set("speed")} format={speedLabel} />
         <SliderRow label="Sway" value={cursor.sway} min={0} max={1} step={0.1} onChange={set("sway")} format={swayLabel} />
         <SliderRow label="Motion blur" value={cursor.motionBlur} min={0} max={1} step={0.1} onChange={set("motionBlur")} format={intensityLabel} />
+      </Section>
+
+      <Section title="Click effect" onReset={() => onChange({ cursor: clickDefaults })} resetDisabled={isDefault(clickDefaults)}>
         <div className="grid grid-cols-5 gap-1">
           {CLICK_EFFECT_OPTIONS.map(({ value, label, icon }) => (
             <ChoiceButton
@@ -96,14 +126,11 @@ export function CursorPanel({ cursor, onChange }: {
         )}
       </Section>
 
-      {cursor.hideWhenIdle && (
-        <Section title="Idle">
-          <SliderRow label="Idle delay" value={cursor.idleTimeout} min={0.1} max={3} step={0.1} onChange={set("idleTimeout")} format={(value) => `${value.toFixed(1)}s`} />
-        </Section>
-      )}
-
       <Section title="Behavior">
         <SwitchRow label="Hide when idle" checked={cursor.hideWhenIdle} onChange={(value) => onChange({ cursor: { hideWhenIdle: value } })} />
+        {cursor.hideWhenIdle && (
+          <SliderRow label="Idle delay" value={cursor.idleTimeout} min={0.1} max={3} step={0.1} onChange={set("idleTimeout")} format={(value) => `${value.toFixed(1)}s`} />
+        )}
         <SwitchRow label="Lock cursor type" checked={cursor.lockType} onChange={(value) => onChange({ cursor: { lockType: value } })} />
       </Section>
     </div>

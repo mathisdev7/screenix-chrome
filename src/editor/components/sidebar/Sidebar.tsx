@@ -1,17 +1,16 @@
-import { IconAspectRatio, IconChevronsLeft, IconChevronsRight, IconMusic, IconPhoto, IconPointer, IconVideo, IconWorld, IconZoomIn, type Icon } from "@tabler/icons-react";
+import { IconChevronsLeft, IconChevronsRight, IconMusic, IconPhoto, IconPointer, IconVideo, IconWorld, IconZoomIn, type Icon } from "@tabler/icons-react";
 import clsx from "clsx";
 import { useState, type ReactNode } from "react";
 
-export type SidebarTab = "cursor" | "zoom" | "camera" | "ratio" | "audio" | "background" | "browser";
+export type SidebarTab = "zoom" | "cursor" | "camera" | "background" | "browser" | "audio";
 
 const TABS: readonly { id: SidebarTab; label: string; icon: Icon }[] = [
-  { id: "cursor", label: "Cursor", icon: IconPointer },
   { id: "zoom", label: "Zoom", icon: IconZoomIn },
+  { id: "cursor", label: "Cursor", icon: IconPointer },
   { id: "camera", label: "Camera", icon: IconVideo },
-  { id: "ratio", label: "Ratio", icon: IconAspectRatio },
-  { id: "audio", label: "Audio", icon: IconMusic },
   { id: "background", label: "Background", icon: IconPhoto },
   { id: "browser", label: "Browser", icon: IconWorld },
+  { id: "audio", label: "Audio", icon: IconMusic },
 ];
 
 export function Sidebar({ activeTab, onTabChange, renderPanel }: {
@@ -51,21 +50,21 @@ export function Sidebar({ activeTab, onTabChange, renderPanel }: {
             <IconChevronsLeft size={15} stroke={1.8} />
           </button>
         </div>
-        <div role="tablist" className="mt-2 grid grid-cols-14 gap-1 rounded-lg bg-surface-1 p-1">
+        <div role="tablist" className="mt-2 grid grid-cols-6 gap-0.5 rounded-lg bg-surface-1 p-1">
           {TABS.map(({ id, label, icon: TabIcon }) => (
             <button
               key={id}
               type="button"
               role="tab"
-              title={label}
               aria-selected={id === activeTab}
               className={clsx(
-                "gold-button col-span-2 grid size-8 place-items-center rounded-md",
-                id !== activeTab && "opacity-80",
+                "flex h-12 min-w-0 flex-col items-center justify-center gap-0.5 rounded-md text-[11px] font-medium tracking-tight",
+                id === activeTab ? "gold-button" : "text-muted-foreground hover:bg-surface-2 hover:text-foreground",
               )}
               onClick={() => onTabChange(id)}
             >
-              <TabIcon size={19} stroke={1.8} />
+              <TabIcon size={18} stroke={1.8} />
+              <span className="max-w-full truncate">{label}</span>
             </button>
           ))}
         </div>

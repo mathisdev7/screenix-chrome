@@ -16,9 +16,9 @@ import { BackgroundPanel } from "../components/sidebar/BackgroundPanel";
 import { BrowserPanel } from "../components/sidebar/BrowserPanel";
 import { CameraPanel } from "../components/sidebar/CameraPanel";
 import { CursorPanel } from "../components/sidebar/CursorPanel";
-import { RatioPanel } from "../components/sidebar/RatioPanel";
 import { ZoomPanel } from "../components/sidebar/ZoomPanel";
 import { Sidebar, type SidebarTab } from "../components/sidebar/Sidebar";
+import { RatioMenu } from "../components/timeline/RatioMenu";
 import { Timeline } from "../components/timeline/Timeline";
 import { TopBar } from "../components/TopBar";
 import { useEditorSettings } from "../hooks/useEditorSettings";
@@ -60,7 +60,7 @@ function Editor({ media, onHome }: { media: ProjectMedia; onHome: () => void }) 
   const changeSpeed = useCallback((next: typeof speed, coalesceKey?: string) => update({ speed: next }, coalesceKey), [update]);
   const changeCuts = useCallback((next: typeof cuts, coalesceKey?: string) => update({ cuts: next }, coalesceKey), [update]);
   const changeZoom = useCallback((next: ZoomClip[], coalesceKey?: string) => update({ zoom: next }, coalesceKey), [update]);
-  const [sidebarTab, setSidebarTab] = useState<SidebarTab>("cursor");
+  const [sidebarTab, setSidebarTab] = useState<SidebarTab>("zoom");
   const [selectedZoomId, setSelectedZoomId] = useState<string | null>(null);
   const [cropping, setCropping] = useState(false);
   const stopCropping = useCallback(() => setCropping(false), []);
@@ -120,10 +120,12 @@ function Editor({ media, onHome }: { media: ProjectMedia; onHome: () => void }) 
             crop={settings.crop}
             thumbnail={project.thumbnail}
             canAutoZoom={hasClicks}
+            background={settings.background}
             onAdd={addZoom}
             onAutoZoom={autoZoom}
             onSelect={selectZoom}
             onChange={changeZoom}
+            onSettingsChange={update}
           />
         );
       case "camera":
@@ -138,8 +140,6 @@ function Editor({ media, onHome }: { media: ProjectMedia; onHome: () => void }) 
         );
       case "audio":
         return <AudioPanel tracks={media.audio} audio={settings.audio} hasClicks={hasClicks} onChange={update} />;
-      case "ratio":
-        return <RatioPanel aspectRatio={settings.aspectRatio} source={croppedSize(media.source, settings.crop)} backgroundEnabled={settings.background.enabled} onChange={update} />;
       case "background":
         return <BackgroundPanel background={settings.background} onChange={update} onUploadWallpaper={(file) => void uploadWallpaper(file)} />;
       case "browser":
@@ -198,6 +198,14 @@ function Editor({ media, onHome }: { media: ProjectMedia; onHome: () => void }) 
           cropping={cropping}
           cropped={!isFullCrop(settings.crop)}
           onCrop={toggleCropping}
+          ratioMenu={
+            <RatioMenu
+              aspectRatio={settings.aspectRatio}
+              source={croppedSize(media.source, settings.crop)}
+              backgroundEnabled={settings.background.enabled}
+              onChange={update}
+            />
+          }
         />
       </div>
       {shareDialog?.mode === "manage" && (

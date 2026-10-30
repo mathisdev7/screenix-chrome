@@ -1,10 +1,10 @@
 import { IconSparkles, IconTrash, IconZoomIn } from "@tabler/icons-react";
 import { useRef, type PointerEvent as ReactPointerEvent } from "react";
 import { croppedSize, type Size } from "@/render/geometry";
-import type { CropRect, ZoomClip, ZoomMode } from "@/shared/settings";
+import type { BackgroundSettings, CropRect, SettingsPatch, ZoomClip, ZoomMode } from "@/shared/settings";
 import { MAX_ZOOM_SCALE, MAX_ZOOM_TRANSITION, MIN_ZOOM_SCALE, MIN_ZOOM_TRANSITION, formatScale, removeZoomClip, updateZoomClip } from "../../lib/zoomClips";
 import { thumbnailUrl } from "../../lib/thumbnailUrl";
-import { ActionButton, Section, SegmentedControl, SliderRow } from "../controls";
+import { ActionButton, Section, SegmentedControl, SliderRow, SwitchRow } from "../controls";
 
 const MODES: readonly { value: ZoomMode; label: string }[] = [
   { value: "auto", label: "Auto" },
@@ -71,17 +71,43 @@ function RegionPicker({ clip, source, crop, thumbnail, onMove }: {
   );
 }
 
-export function ZoomPanel({ clips, selectedId, source, crop, thumbnail, canAutoZoom, onAdd, onAutoZoom, onSelect, onChange }: {
+function ZoomBehaviorSection({ background, onChange }: {
+  background: BackgroundSettings;
+  onChange: (patch: SettingsPatch) => void;
+}) {
+  const hasFrame = background.browserFrame !== "off";
+  if (!background.enabled && !hasFrame) return null;
+
+  return (
+    <Section title="Zoom behavior">
+      {background.enabled && (
+        <>
+          <SwitchRow label="Zoom inside frame" checked={background.zoomInsideFrame} onChange={(zoomInsideFrame) => onChange({ background: { zoomInsideFrame } })} />
+          <p className="text-[11px] leading-snug text-muted-foreground">
+            {background.zoomInsideFrame ? "The frame stays still and only the recording zooms." : "The whole scene zooms, background included."}
+          </p>
+        </>
+      )}
+      {hasFrame && (
+        <SwitchRow label="Zoom browser bar with the page" checked={background.zoomBrowserFrame} onChange={(zoomBrowserFrame) => onChange({ background: { zoomBrowserFrame } })} />
+      )}
+    </Section>
+  );
+}
+
+export function ZoomPanel({ clips, selectedId, source, crop, thumbnail, canAutoZoom, background, onAdd, onAutoZoom, onSelect, onChange, onSettingsChange }: {
   clips: readonly ZoomClip[];
   selectedId: string | null;
   source: Size;
   crop: CropRect;
   thumbnail: Blob | null;
   canAutoZoom: boolean;
+  background: BackgroundSettings;
   onAdd: () => void;
   onAutoZoom: () => void;
   onSelect: (id: string | null) => void;
   onChange: (clips: ZoomClip[], coalesceKey?: string) => void;
+  onSettingsChange: (patch: SettingsPatch) => void;
 }) {
   const clip = clips.find((item) => item.id === selectedId) ?? null;
   const patch = (next: Partial<Omit<ZoomClip, "id" | "start" | "end">>, key?: string) => {
@@ -179,6 +205,8 @@ export function ZoomPanel({ clips, selectedId, source, crop, thumbnail, canAutoZ
           {clips.length > 0 ? "Select a zoom on the timeline to edit it." : "Add a zoom at the playhead, or let Auto zoom add one at every click."}
         </p>
       )}
+
+      <ZoomBehaviorSection background={background} onChange={onSettingsChange} />
     </div>
   );
 }

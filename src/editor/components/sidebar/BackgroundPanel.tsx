@@ -26,9 +26,6 @@ export function BackgroundPanel({ background, onChange, onUploadWallpaper }: {
   return (
     <div className="space-y-5">
       <SwitchRow label="Add a background" checked={background.enabled} onChange={(enabled) => onChange({ background: { enabled } })} />
-      {background.enabled && (
-        <SwitchRow label="Zoom inside frame" checked={background.zoomInsideFrame} onChange={(zoomInsideFrame) => onChange({ background: { zoomInsideFrame } })} />
-      )}
 
       {background.enabled && (
         <>

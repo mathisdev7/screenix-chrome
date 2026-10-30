@@ -24,7 +24,7 @@ function AddButton({ title, active = false, onClick, children }: { title: string
       aria-pressed={active}
       onClick={onClick}
       className={clsx(
-        "flex h-7 items-center gap-1.5 rounded-lg border px-2.5 text-[11px] font-medium text-foreground hover:bg-accent/60",
+        "flex h-7 items-center gap-1.5 whitespace-nowrap rounded-lg border px-2.5 text-[11px] font-medium text-foreground hover:bg-accent/60",
         active && "bg-accent/60",
       )}
     >
@@ -33,7 +33,7 @@ function AddButton({ title, active = false, onClick, children }: { title: string
   );
 }
 
-export function TimelineToolbar({ time, duration, playing, zoom, onToggle, onStep, onZoom, onAddSpeed, onAddCut, onAddZoom, cropping, cropped, onCrop }: {
+export function TimelineToolbar({ time, duration, playing, zoom, onToggle, onStep, onZoom, onAddSpeed, onAddCut, onAddZoom, cropping, cropped, onCrop, ratioMenu }: {
   time: number;
   duration: number;
   playing: boolean;
@@ -47,11 +47,12 @@ export function TimelineToolbar({ time, duration, playing, zoom, onToggle, onSte
   cropping: boolean;
   cropped: boolean;
   onCrop: () => void;
+  ratioMenu: ReactNode;
 }) {
   return (
-    <div className="grid grid-cols-[1fr_auto_1fr] items-center">
+    <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
       <div className="flex items-center gap-3">
-        <span className="text-[11px] font-medium tabular-nums text-muted-foreground">
+        <span className="whitespace-nowrap text-[11px] font-medium tabular-nums text-muted-foreground">
           {formatClock(time)} <span className="opacity-50">/</span> {formatClock(duration)}
         </span>
         <div className="flex gap-1.5">
@@ -71,6 +72,7 @@ export function TimelineToolbar({ time, duration, playing, zoom, onToggle, onSte
             <IconCrop size={13} />
             {cropped ? "Edit crop" : "Crop"}
           </AddButton>
+          {ratioMenu}
         </div>
       </div>
       <div className="flex">

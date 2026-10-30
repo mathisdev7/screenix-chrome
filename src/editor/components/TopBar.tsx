@@ -98,13 +98,13 @@ export function TopBar({ projectName, onRename, onHome, onUndo, onRedo, canUndo,
         <span className="mx-1 h-5 w-px bg-border" />
         {!licensed && (
           <>
-            <button type="button" onClick={onEnterLicenseKey} className="h-7 rounded-lg px-2 text-xs text-muted-foreground transition-colors hover:text-foreground">
+            <button type="button" onClick={onEnterLicenseKey} className="h-7 whitespace-nowrap rounded-lg px-2 text-xs text-muted-foreground transition-colors hover:text-foreground">
               Have a license key?
             </button>
             <button
               type="button"
               onClick={onRemoveWatermark}
-              className="flex h-7 items-center rounded-lg border px-3 text-xs text-foreground transition-colors hover:bg-accent/70"
+              className="flex h-7 items-center whitespace-nowrap rounded-lg border px-3 text-xs text-foreground transition-colors hover:bg-accent/70"
             >
               Remove watermark
             </button>

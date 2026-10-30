@@ -1,6 +1,6 @@
 import { IconBolt, IconScissors, IconVideo, IconZoomIn } from "@tabler/icons-react";
 import clsx from "clsx";
-import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { TimeMap } from "@/render/timeMap";
 import type { CutClip, SpeedClip, TrimRange, ZoomClip } from "@/shared/settings";
 import { useElementSize } from "../../hooks/useElementSize";
@@ -40,7 +40,7 @@ function isTyping(target: EventTarget | null): boolean {
   return target instanceof HTMLElement && (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName));
 }
 
-export function Timeline({ clock, duration, map, speed, cuts, zoomClips, selectedZoomId, onTrimChange, onSpeedChange, onCutsChange, onZoomChange, onSelectZoom, onAddZoom, cropping, cropped, onCrop }: {
+export function Timeline({ clock, duration, map, speed, cuts, zoomClips, selectedZoomId, onTrimChange, onSpeedChange, onCutsChange, onZoomChange, onSelectZoom, onAddZoom, cropping, cropped, onCrop, ratioMenu }: {
   clock: PlaybackClock;
   duration: number;
   map: TimeMap;
@@ -57,6 +57,7 @@ export function Timeline({ clock, duration, map, speed, cuts, zoomClips, selecte
   cropping: boolean;
   cropped: boolean;
   onCrop: () => void;
+  ratioMenu: ReactNode;
 }) {
   const { time, playing } = usePlaybackSnapshot(clock);
   const trim = { start: map.sourceStart, end: map.sourceEnd };
@@ -191,6 +192,7 @@ export function Timeline({ clock, duration, map, speed, cuts, zoomClips, selecte
         cropping={cropping}
         cropped={cropped}
         onCrop={onCrop}
+        ratioMenu={ratioMenu}
         onToggle={() => clock.toggle()}
         onStep={(direction) => {
           clock.pause();
