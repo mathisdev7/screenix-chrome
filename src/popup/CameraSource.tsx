@@ -2,7 +2,7 @@ import { IconAdjustmentsHorizontal, IconVideo, IconVideoOff } from "@tabler/icon
 import { useEffect, useRef, useState } from "react";
 import { SegmentedControl, SwitchRow } from "@/editor/components/controls";
 import { cameraConstraints } from "@/shared/mediaAccess";
-import { DeviceSelect } from "./DeviceSelect";
+import { DeviceSource } from "./SourceRow";
 import type { CapturePatch, MediaState } from "./useMediaState";
 
 type Placement = "page" | "editor";
@@ -56,9 +56,9 @@ function CameraPreview({ cameraId }: { cameraId: string }) {
   }, [stream]);
 
   return (
-    <div className="relative grid size-14 shrink-0 place-items-center overflow-hidden rounded-full bg-surface-2 shadow-[0_6px_16px_rgba(0,0,0,0.35),0_0_0_1px_var(--border)]">
+    <div className="popup-source-tile rounded-full!">
       {stream === "failed" ? (
-        <IconVideoOff size={20} stroke={1.8} className="text-muted-foreground" aria-label="Camera unavailable" />
+        <IconVideoOff size={16} stroke={1.8} className="text-muted-foreground" aria-label="Camera unavailable" />
       ) : (
         <video ref={video} autoPlay muted playsInline className="size-full -scale-x-100 object-cover" />
       )}
@@ -66,50 +66,45 @@ function CameraPreview({ cameraId }: { cameraId: string }) {
   );
 }
 
-export function CameraPanel({ state, onChange }: { state: MediaState; onChange: (patch: CapturePatch) => void }) {
+export function CameraSource({ state, onChange }: { state: MediaState; onChange: (patch: CapturePatch) => void }) {
   const { settings } = state;
   const placement: Placement = settings.cameraBubble === "recording" ? "page" : "editor";
 
   const choosePlacement = (next: Placement) => onChange({ cameraBubble: next === "page" ? "recording" : "countdown" });
 
   return (
-    <div className="space-y-2">
-      <DeviceSelect
-        icon={IconVideo}
-        label="Camera"
-        kind="camera"
-        deviceKind="videoinput"
-        value={settings.cameraId}
-        state={state}
-        onChange={(cameraId) => onChange({ cameraId })}
-      />
-      {settings.cameraId && (
-        <div className="space-y-2 rounded-xl border bg-surface-1 p-2.5">
-          <div className="flex items-center gap-3">
-            <CameraPreview cameraId={settings.cameraId} />
-            <div className="min-w-0 flex-1 space-y-1.5">
-              <SegmentedControl label="Camera bubble" options={PLACEMENTS} value={placement} onChange={choosePlacement} />
-              <p className="text-[11px] leading-snug text-muted-foreground">{PLACEMENT_HINTS[placement]}</p>
-            </div>
-          </div>
-          {placement === "editor" ? (
-            <SwitchRow
-              label="Bubble during countdown"
-              checked={settings.cameraBubble === "countdown"}
-              onChange={(on) => onChange({ cameraBubble: on ? "countdown" : "off" })}
-            />
-          ) : (
-            <button
-              type="button"
-              onClick={() => void chrome.tabs.create({ url: chrome.runtime.getURL(CAMERA_SETUP_PAGE) })}
-              className="sidebar-choice flex h-8 w-full items-center justify-center gap-1.5 text-[12px]"
-            >
-              <IconAdjustmentsHorizontal size={14} stroke={1.8} />
-              Adjust size, shape and position
-            </button>
-          )}
-        </div>
-      )}
-    </div>
+    <DeviceSource
+      kind="camera"
+      deviceKind="videoinput"
+      icon={IconVideo}
+      title="Camera"
+      value={settings.cameraId}
+      state={state}
+      onChange={(cameraId) => onChange({ cameraId })}
+      preview={settings.cameraId && <CameraPreview cameraId={settings.cameraId} />}
+      summary={PLACEMENTS.find((option) => option.value === placement)?.label}
+    >
+      <div className="popup-menu-label">Bubble</div>
+      <div className="space-y-1.5 px-1 pb-1">
+        <SegmentedControl label="Camera bubble" options={PLACEMENTS} value={placement} onChange={choosePlacement} />
+        <p className="px-0.5 text-[11px] leading-snug text-muted-foreground">{PLACEMENT_HINTS[placement]}</p>
+        {placement === "editor" ? (
+          <SwitchRow
+            label="Show during countdown"
+            checked={settings.cameraBubble === "countdown"}
+            onChange={(on) => onChange({ cameraBubble: on ? "countdown" : "off" })}
+          />
+        ) : (
+          <button
+            type="button"
+            onClick={() => void chrome.tabs.create({ url: chrome.runtime.getURL(CAMERA_SETUP_PAGE) })}
+            className="sidebar-choice flex h-8 w-full items-center justify-center gap-1.5 text-[12px]"
+          >
+            <IconAdjustmentsHorizontal size={14} stroke={1.8} />
+            Adjust size, shape and position
+          </button>
+        )}
+      </div>
+    </DeviceSource>
   );
 }

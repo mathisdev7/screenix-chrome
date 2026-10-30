@@ -1,6 +1,6 @@
-import { IconAlertTriangle, IconLayoutGrid, IconPlayerRecordFilled } from "@tabler/icons-react";
+import { IconAlertTriangle, IconMovie } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
-import { openLicensePricing, useLicense } from "@/editor/hooks/useLicense";
+import { useLicense } from "@/editor/hooks/useLicense";
 import {
   RECORDING_STATUS_KEY,
   readRecordingStatus,
@@ -8,13 +8,12 @@ import {
   type BackgroundRequest,
   type RecordingStatus,
 } from "@/shared/messages";
-import type { License } from "@/shared/license";
 import { uncapturableReason } from "@/shared/tabCapture";
+import { LicenseMenu } from "./LicenseMenu";
 import { RecordingView } from "./RecordingView";
 import { SetupView } from "./SetupView";
+import { StartButton } from "./StartButton";
 import { useMediaState } from "./useMediaState";
-
-const LICENSE_PAGE = "/editor.html?license=1";
 
 function useRecordingStatus(): RecordingStatus {
   const [status, setStatus] = useState<RecordingStatus>({ state: "idle" });
@@ -46,27 +45,6 @@ function useActiveTabWarning(): string | null {
   return warning;
 }
 
-function LicenseBadge({ license }: { license: License | null }) {
-  if (!license) {
-    return (
-      <button type="button" onClick={openLicensePricing} className="gold-button h-7 shrink-0 rounded-lg px-2.5 text-[11px] font-medium">
-        Remove watermark
-      </button>
-    );
-  }
-  return (
-    <a
-      href={LICENSE_PAGE}
-      target="_blank"
-      title={`Licensed to ${license.email}`}
-      className="flex h-7 items-center gap-1.5 rounded-lg px-2 text-[12px] text-muted-foreground hover:bg-surface-1 hover:text-foreground"
-    >
-      <span className="size-1.5 rounded-full bg-[#70b38f]" />
-      Licensed
-    </a>
-  );
-}
-
 export function Popup() {
   const status = useRecordingStatus();
   const media = useMediaState();
@@ -86,49 +64,38 @@ export function Popup() {
   };
 
   return (
-    <div className="screenix-editor screenix-popup w-[312px] space-y-3 px-4 py-3.5">
-      <header className="flex items-center gap-2">
-        <img src="/icons/icon-32.png" alt="" className="size-5" />
+    <div className="screenix-editor screenix-popup w-[312px] px-3.5 pb-3.5 pt-3">
+      <header className="mb-3 flex h-7 items-center gap-1.5">
+        <img src="/icons/icon-32.png" alt="" className="mr-0.5 size-5" />
         <span className="flex-1 text-[13px] font-semibold">Screenix</span>
-        {!licenseLoading && <LicenseBadge license={license} />}
-        <a
-          href="/editor.html"
-          target="_blank"
-          title="Open recordings"
-          aria-label="Open recordings"
-          className="grid size-7 place-items-center rounded-lg text-muted-foreground hover:bg-surface-1 hover:text-foreground"
-        >
-          <IconLayoutGrid size={15} stroke={1.8} />
+        {!licenseLoading && <LicenseMenu license={license} />}
+        <a href="/editor.html" target="_blank" title="Recordings" aria-label="Recordings" className="popup-ghost w-7 justify-center px-0">
+          <IconMovie size={15} stroke={1.8} />
         </a>
       </header>
 
       {status.state === "idle" ? (
-        <>
-          {media.state && <SetupView state={media.state} onChange={media.update} />}
-          <div className="space-y-2">
+        media.state && (
+          <div className="space-y-3">
+            <SetupView state={media.state} onChange={media.update} />
             {tabWarning && (
-              <p className="flex gap-2 text-[11px] leading-snug text-[#d9a45a]">
+              <p className="flex gap-2 px-0.5 text-[11px] leading-snug text-[#d9a45a]">
                 <IconAlertTriangle size={14} className="mt-px shrink-0" />
                 <span>{tabWarning} Switch to a website tab first, or the video stays black until you do.</span>
               </p>
             )}
-            <button type="button" onClick={() => void start()} className="sidebar-action">
-              <IconPlayerRecordFilled size={14} className="text-[#c93c42]" />
-              Start recording
-              <kbd className="ml-auto font-sans text-[11px] font-normal opacity-60">Alt+Shift+R</kbd>
-            </button>
+            <StartButton
+              countdown={media.state.settings.countdown}
+              onCountdownChange={(countdown) => media.update({ countdown })}
+              onStart={() => void start()}
+            />
           </div>
-        </>
+        )
       ) : (
         <RecordingView status={status} onStop={() => void send({ type: "recording/stop" })} />
       )}
 
-      {error && <p className="text-[11px] text-destructive">{error}</p>}
-      {!licenseLoading && !license && (
-        <a href={LICENSE_PAGE} target="_blank" className="sidebar-choice flex h-8 items-center justify-center text-[12px] text-muted-foreground! hover:text-foreground!">
-          Have a license key?
-        </a>
-      )}
+      {error && <p className="mt-3 text-[11px] text-destructive">{error}</p>}
     </div>
   );
 }

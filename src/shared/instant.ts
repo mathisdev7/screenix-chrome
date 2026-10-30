@@ -5,11 +5,6 @@ export type RecordingMode = "studio" | "instant";
 
 export type InstantLook = "full" | "framed";
 
-export const INSTANT_LOOKS: readonly { value: InstantLook; label: string }[] = [
-  { value: "full", label: "Edge to edge" },
-  { value: "framed", label: "Background" },
-];
-
 export const INSTANT_HIDPI_LONG_SIDE = 1920;
 
 export const INSTANT_VIDEO_ASSET_KEY = "instant-video";

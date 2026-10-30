@@ -1,5 +1,5 @@
-import { Slider } from "@base-ui/react/slider";
 import { useEffect, useRef, type RefObject } from "react";
+import { SliderRow } from "@/editor/components/controls";
 import { microphoneConstraints } from "@/shared/mediaAccess";
 
 const MIN_GAIN_DB = -12;
@@ -9,6 +9,8 @@ const METER_DECAY = 0.9;
 
 const gainToDb = (gain: number) => Math.round(20 * Math.log10(gain));
 const dbToGain = (db: number) => 10 ** (db / 20);
+
+export const formatGain = (gain: number) => `${Math.round(gain * 100)}%`;
 
 function peakOf(data: AudioData, plane: Float32Array<ArrayBuffer>): number {
   let peak = 0;
@@ -73,37 +75,27 @@ function useLevelMeter(deviceId: string, gain: number, meter: RefObject<HTMLDivE
   }, [deviceId, meter]);
 }
 
-export function MicrophoneGain({ deviceId, gain, onChange }: {
-  deviceId: string;
-  gain: number;
-  onChange: (gain: number) => void;
-}) {
+export function MicrophoneMeter({ deviceId, gain }: { deviceId: string; gain: number }) {
   const meter = useRef<HTMLDivElement>(null);
   useLevelMeter(deviceId, gain, meter);
-  const display = `${Math.round(gain * 100)}%`;
 
   return (
-    <Slider.Root
-      aria-label="Microphone gain"
-      className="sidebar-slider"
+    <div className="microphone-meter" aria-hidden>
+      <div ref={meter} />
+    </div>
+  );
+}
+
+export function MicrophoneGain({ gain, onChange }: { gain: number; onChange: (gain: number) => void }) {
+  return (
+    <SliderRow
+      label="Gain"
       min={MIN_GAIN_DB}
       max={MAX_GAIN_DB}
       step={1}
-      thumbAlignment="edge"
       value={gainToDb(gain)}
-      onValueChange={(db) => onChange(dbToGain(db as number))}
-    >
-      <Slider.Control className="sidebar-slider-control">
-        <Slider.Track className="sidebar-slider-track">
-          <Slider.Indicator className="sidebar-slider-fill" />
-          <div ref={meter} className="microphone-meter" aria-hidden />
-          <div className="sidebar-slider-caption" aria-hidden>
-            <span>Mic gain</span>
-            <span className="sidebar-slider-value">{display}</span>
-          </div>
-          <Slider.Thumb className="sidebar-slider-thumb" index={0} aria-label="Microphone gain" aria-valuetext={display} />
-        </Slider.Track>
-      </Slider.Control>
-    </Slider.Root>
+      format={(db) => formatGain(dbToGain(db))}
+      onChange={(db) => onChange(dbToGain(db))}
+    />
   );
 }

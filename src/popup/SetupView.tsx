@@ -1,10 +1,10 @@
-import { IconHourglassHigh, IconMicrophone, IconVolume, IconZoomIn } from "@tabler/icons-react";
-import { ChoiceButton, SegmentedControl, SwitchRow } from "@/editor/components/controls";
-import { COUNTDOWN_SECONDS, type CountdownSeconds } from "@/shared/countdown";
-import { INSTANT_LOOKS, type RecordingMode } from "@/shared/instant";
-import { CameraPanel } from "./CameraPanel";
-import { DeviceSelect, PopupRow } from "./DeviceSelect";
-import { MicrophoneGain } from "./MicrophoneGain";
+import { IconMicrophone, IconPhoto, IconVolume, IconZoomIn, type Icon } from "@tabler/icons-react";
+import type { ReactNode } from "react";
+import { SegmentedControl } from "@/editor/components/controls";
+import type { RecordingMode } from "@/shared/instant";
+import { CameraSource } from "./CameraSource";
+import { MicrophoneGain, MicrophoneMeter, formatGain } from "./MicrophoneGain";
+import { DeviceSource, SourceRow } from "./SourceRow";
 import type { CapturePatch, MediaState } from "./useMediaState";
 
 const MODES: readonly { value: RecordingMode; label: string }[] = [
@@ -12,65 +12,62 @@ const MODES: readonly { value: RecordingMode; label: string }[] = [
   { value: "instant", label: "Instant" },
 ];
 
-const COUNTDOWNS = COUNTDOWN_SECONDS.map((seconds) => ({ value: String(seconds), label: seconds === 0 ? "Off" : `${seconds}s` }));
+function Chip({ icon: ChipIcon, active, onClick, children }: { icon: Icon; active: boolean; onClick: () => void; children: ReactNode }) {
+  return (
+    <button type="button" aria-pressed={active} onClick={onClick} className="popup-chip">
+      <ChipIcon size={13} stroke={1.8} />
+      {children}
+    </button>
+  );
+}
 
 export function SetupView({ state, onChange }: { state: MediaState; onChange: (patch: CapturePatch) => void }) {
   const { settings } = state;
+  const { microphoneId, microphoneGain } = settings;
 
   return (
     <div className="space-y-3">
-      <section className="space-y-2">
+      <section className="popup-mode space-y-2">
         <SegmentedControl label="Recording mode" options={MODES} value={settings.mode} onChange={(mode) => onChange({ mode })} />
         {settings.mode === "studio" ? (
           <p className="px-0.5 text-[11px] leading-snug text-muted-foreground">Edit the cursor, zoom and camera afterwards.</p>
         ) : (
-          <div className="flex gap-2">
-            <div className="min-w-0 flex-1">
-              <SegmentedControl label="Instant video look" options={INSTANT_LOOKS} value={settings.instantLook} onChange={(instantLook) => onChange({ instantLook })} />
-            </div>
-            <ChoiceButton
-              active={settings.instantZoom}
-              title="Zoom in on clicks"
-              onClick={() => onChange({ instantZoom: !settings.instantZoom })}
-              className="flex shrink-0 items-center gap-1.5 px-3 text-[11px]"
+          <div className="flex gap-1.5">
+            <Chip
+              icon={IconPhoto}
+              active={settings.instantLook === "framed"}
+              onClick={() => onChange({ instantLook: settings.instantLook === "framed" ? "full" : "framed" })}
             >
-              <IconZoomIn size={14} stroke={1.8} />
-              Zoom
-            </ChoiceButton>
+              Background
+            </Chip>
+            <Chip icon={IconZoomIn} active={settings.instantZoom} onClick={() => onChange({ instantZoom: !settings.instantZoom })}>
+              Zoom on clicks
+            </Chip>
           </div>
         )}
       </section>
 
-      <section className="space-y-2">
-        <DeviceSelect
-          icon={IconMicrophone}
-          label="Microphone"
+      <div className="popup-sources">
+        <DeviceSource
           kind="microphone"
           deviceKind="audioinput"
-          value={settings.microphoneId}
+          icon={IconMicrophone}
+          title="Microphone"
+          value={microphoneId}
           state={state}
-          onChange={(microphoneId) => onChange({ microphoneId })}
-        />
-        {settings.microphoneId && state.access.microphone && (
-          <div className="pl-[26px]">
-            <MicrophoneGain deviceId={settings.microphoneId} gain={settings.microphoneGain} onChange={(microphoneGain) => onChange({ microphoneGain })} />
+          onChange={(id) => onChange({ microphoneId: id })}
+          summary={microphoneGain === 1 ? undefined : formatGain(microphoneGain)}
+          meter={microphoneId && <MicrophoneMeter deviceId={microphoneId} gain={microphoneGain} />}
+        >
+          <div className="px-1 pb-1">
+            <MicrophoneGain gain={microphoneGain} onChange={(gain) => onChange({ microphoneGain: gain })} />
           </div>
-        )}
-        <PopupRow icon={IconVolume}>
-          <SwitchRow label="Tab audio" checked={settings.tabAudio} onChange={(tabAudio) => onChange({ tabAudio })} />
-        </PopupRow>
-      </section>
-
-      <CameraPanel state={state} onChange={onChange} />
-
-      <PopupRow icon={IconHourglassHigh}>
-        <SegmentedControl
-          label="Countdown"
-          options={COUNTDOWNS}
-          value={String(settings.countdown)}
-          onChange={(value) => onChange({ countdown: Number(value) as CountdownSeconds })}
-        />
-      </PopupRow>
+        </DeviceSource>
+        <CameraSource state={state} onChange={onChange} />
+        <SourceRow icon={IconVolume} title="Tab audio" checked={settings.tabAudio} onCheckedChange={(tabAudio) => onChange({ tabAudio })}>
+          <span className="popup-source-detail">{settings.tabAudio ? "Sound from this tab" : "Off"}</span>
+        </SourceRow>
+      </div>
     </div>
   );
 }
