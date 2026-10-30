@@ -10,7 +10,7 @@ export function createManifest(): chrome.runtime.ManifestV3 {
     manifest_version: 3,
     name: "__MSG_extName__",
     short_name: "Screenix",
-    version: "0.6.1",
+    version: "0.7.0",
     description: "__MSG_extDescription__",
     default_locale: "en",
     minimum_chrome_version: "118",
