@@ -8,6 +8,11 @@ function sample(t: number, x: number, y: number, overrides: Partial<PointerSampl
   return { t, x, y, kind: "move", button: 0, shape: "default", tabId: 1, ...overrides };
 }
 
+function upwardSweep(from: number, start: number, duration: number): PointerSample[] {
+  const steps = 60;
+  return Array.from({ length: steps + 1 }, (_, i) => sample(start + (duration * i) / steps, 0.5, from - (from * i) / steps));
+}
+
 function horizontalSweep(from: number, to: number, start = 0, duration = 0.5): PointerSample[] {
   const steps = 60;
   return Array.from({ length: steps + 1 }, (_, i) => sample(start + (duration * i) / steps, from + ((to - from) * i) / steps, 0.5));
@@ -30,19 +35,49 @@ describe("buildCursorTimeline", () => {
     expect(sampleTimeline(0.25, fast).x).toBeGreaterThan(sampleTimeline(0.25, slow).x);
   });
 
-  test("leaving the page for a while ends the segment after a short hold at the edge", () => {
+  test("leaving the page for a while fades the cursor out as it leaves", () => {
     const samples = [
-      ...horizontalSweep(0.2, 0.4, 0, 0.3),
-      sample(0.4, 0.4, -0.01, { kind: "leave" }),
+      ...upwardSweep(0.6, 0, 0.3),
+      sample(0.31, 0.5, -0.01, { kind: "leave" }),
       ...horizontalSweep(0.6, 0.8, 2, 0.3),
     ];
     const timeline = buildCursorTimeline(samples, 0.5);
     expect(timeline.segments).toHaveLength(2);
-    expect(segmentAt(timeline, 0.6)).not.toBeNull();
-    expect(segmentAt(timeline, 1.5)).toBeNull();
+    expect(timeline.segments[0].end).toBeCloseTo(0.51, 6);
+    expect(segmentAt(timeline, 0.6)).toBeNull();
     expect(segmentAt(timeline, 2.1)?.start).toBe(2);
-    const [first] = timeline.segments;
-    expect(sampleTimeline(first.spring.at(-1)!.t, first.spring).y).toBeCloseTo(0, 2);
+  });
+
+  test("the cursor keeps moving out of the page instead of stopping at the edge", () => {
+    const samples = [...upwardSweep(0.6, 0, 0.3), sample(0.31, 0.5, -0.01, { kind: "leave" })];
+    const [segment] = buildCursorTimeline(samples, 0.5).segments;
+    const atLeave = sampleTimeline(0.31, segment.spring).y;
+    const fading = sampleTimeline(0.41, segment.spring).y;
+    const gone = sampleTimeline(0.5, segment.spring).y;
+    expect(fading).toBeLessThan(atLeave - 0.03);
+    expect(gone).toBeLessThan(fading - 0.02);
+    expect(gone).toBeLessThan(0);
+  });
+
+  test("a quick return drops the exit motion", () => {
+    const samples = [
+      ...upwardSweep(0.6, 0, 0.3),
+      sample(0.31, 0.5, -0.01, { kind: "leave" }),
+      sample(0.4, 0.5, 0.05),
+      sample(0.45, 0.5, 0.1),
+    ];
+    const timeline = buildCursorTimeline(samples, 0.5);
+    expect(timeline.segments).toHaveLength(1);
+    const { spring } = timeline.segments[0];
+    expect(sampleTimeline(spring.at(-1)!.t, spring).y).toBeCloseTo(0.1, 3);
+    expect(Math.min(...spring.map((point) => point.y))).toBeGreaterThan(-0.05);
+  });
+
+  test("leaving from inside the page, as into an iframe, holds where the pointer left", () => {
+    const samples = [...horizontalSweep(0.2, 0.4, 0, 0.3), sample(0.31, 0.4, 0.5, { kind: "leave" })];
+    const [segment] = buildCursorTimeline(samples, 0.5).segments;
+    expect(segment.end).toBeCloseTo(0.51, 6);
+    expect(sampleTimeline(segment.spring.at(-1)!.t, segment.spring).x).toBeCloseTo(0.4, 2);
   });
 
   test("a quick exit and return keeps the cursor continuous", () => {

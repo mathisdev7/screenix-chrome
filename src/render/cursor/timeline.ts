@@ -8,8 +8,11 @@ const MAX_INTERP_GAP = 0.5;
 const SETTLE_TAIL = 2;
 const PRIMARY_BUTTON = 0;
 export const LEAVE_MERGE_GAP = 1;
-export const LEAVE_HOLD = 0.35;
 export const LEAVE_FADE = 0.2;
+const EXIT_EDGE = 0.01;
+const EXIT_VELOCITY_WINDOW = 0.03;
+const MAX_EXIT_SAMPLE_AGE = 0.15;
+const MAX_EXIT_GLIDE = 0.15;
 
 export interface TimelinePoint {
   t: number;
@@ -167,8 +170,30 @@ interface SegmentDraft {
 
 const clamp01 = (value: number) => Math.min(1, Math.max(0, value));
 
-export function edgeSample(leave: PointerSample): PointerSample {
-  return { ...leave, kind: "move", x: clamp01(leave.x), y: clamp01(leave.y) };
+function isAtEdge({ x, y }: PointerSample): boolean {
+  return x <= EXIT_EDGE || x >= 1 - EXIT_EDGE || y <= EXIT_EDGE || y >= 1 - EXIT_EDGE;
+}
+
+function exitGlide(samples: readonly PointerSample[], leave: PointerSample): PointerSample | null {
+  if (!isAtEdge(leave)) return null;
+  let index = samples.length - 1;
+  while (index >= 0 && samples[index].t > leave.t - EXIT_VELOCITY_WINDOW) index--;
+  const from = samples[index];
+  if (!from || leave.t - from.t > MAX_EXIT_SAMPLE_AGE) return null;
+  const scale = LEAVE_FADE / (leave.t - from.t);
+  const dx = (leave.x - from.x) * scale;
+  const dy = (leave.y - from.y) * scale;
+  const fit = Math.min(1, MAX_EXIT_GLIDE / Math.max(Number.EPSILON, Math.hypot(dx, dy)));
+  return { ...leave, kind: "move", t: leave.t + LEAVE_FADE, x: leave.x + dx * fit, y: leave.y + dy * fit };
+}
+
+export function exitSamples(samples: readonly PointerSample[], leave: PointerSample): PointerSample[] {
+  const glide = exitGlide(samples, leave);
+  return glide ? [{ ...leave, kind: "move" }, glide] : [{ ...leave, kind: "move", x: clamp01(leave.x), y: clamp01(leave.y) }];
+}
+
+export function dropExitAfter(samples: PointerSample[], time: number) {
+  while (samples.length > 1 && samples[samples.length - 1].t > time) samples.pop();
 }
 
 function splitIntoSegments(samples: readonly PointerSample[]): SegmentDraft[] {
@@ -185,18 +210,19 @@ function splitIntoSegments(samples: readonly PointerSample[]): SegmentDraft[] {
   for (const sample of samples) {
     if (sample.kind === "leave") {
       if (current.length > 0) {
-        current.push(edgeSample(sample));
+        current.push(...exitSamples(current, sample));
         leftAt = sample.t;
       }
       continue;
     }
+    if (leftAt !== null) dropExitAfter(current, sample.t);
     const previous = current[current.length - 1];
     if (previous && previous.tabId !== sample.tabId) close(sample.t, 0);
-    else if (leftAt !== null && sample.t - leftAt > LEAVE_MERGE_GAP) close(Math.min(leftAt + LEAVE_HOLD + LEAVE_FADE, sample.t), LEAVE_FADE);
+    else if (leftAt !== null && sample.t - leftAt > LEAVE_MERGE_GAP) close(Math.min(leftAt + LEAVE_FADE, sample.t), LEAVE_FADE);
     leftAt = null;
     current.push(sample);
   }
-  close(leftAt === null ? Infinity : leftAt + LEAVE_HOLD + LEAVE_FADE, LEAVE_FADE);
+  close(leftAt === null ? Infinity : leftAt + LEAVE_FADE, LEAVE_FADE);
   return segments;
 }
 

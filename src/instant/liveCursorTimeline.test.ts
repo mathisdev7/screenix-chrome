@@ -63,11 +63,30 @@ describe("LiveCursorTimeline", () => {
     expect(live.map(({ start, end, fadeOut }) => ({ start, end, fadeOut }))).toEqual(batch.map(({ start, end, fadeOut }) => ({ start, end, fadeOut })));
   });
 
+  test("moves the cursor out of the page like the editor", () => {
+    const samples = [
+      ...Array.from({ length: 37 }, (_, i) => sample(i / 120, 0.5, 0.6 - (0.6 * i) / 36)),
+      sample(0.31, 0.5, -0.01, { kind: "leave" }),
+      sample(0.4, 0.5, 0.05),
+      ...sweep(0.5, 0.7, 0.5, 0.3),
+      sample(0.81, 0.7, -0.01, { kind: "leave" }),
+    ];
+    const batch = buildCursorTimeline(samples, 0.5).segments;
+    const live = streamed(samples, 3).timeline.segments;
+    expect(live.map(({ start, end }) => ({ start, end }))).toEqual(batch.map(({ start, end }) => ({ start, end })));
+    for (let t = 0; t <= batch[0].end; t += 1 / 60) {
+      const a = sampleTimeline(t, live[0].spring);
+      const b = sampleTimeline(t, batch[0].spring);
+      expect(a.x).toBeCloseTo(b.x, 6);
+      expect(a.y).toBeCloseTo(b.y, 6);
+    }
+  });
+
   test("closes a left segment once enough time has passed without a return", () => {
     const live = new LiveCursorTimeline(0.5);
     live.add([...sweep(0.2, 0.4, 0, 0.3), sample(0.4, 0.4, -0.01, { kind: "leave" })]);
     live.advance(0.4 + POINTER_LOOKAHEAD);
-    expect(live.timeline.segments[0].end).toBeCloseTo(0.95, 6);
+    expect(live.timeline.segments[0].end).toBeCloseTo(0.6, 6);
   });
 
   test("starts a new segment on another tab", () => {

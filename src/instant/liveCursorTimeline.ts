@@ -1,8 +1,8 @@
 import { SpringCursor } from "@/render/cursor/spring";
 import {
-  edgeSample,
+  dropExitAfter,
+  exitSamples,
   LEAVE_FADE,
-  LEAVE_HOLD,
   LEAVE_MERGE_GAP,
   nextClickIndex,
   SPRING_FPS,
@@ -65,7 +65,7 @@ export class LiveCursorTimeline {
   private addSample(sample: PointerSample) {
     if (sample.kind === "leave") {
       if (this.open) {
-        insertByTime(this.open.samples, edgeSample(sample));
+        for (const exit of exitSamples(this.open.samples, sample)) insertByTime(this.open.samples, exit);
         this.leftAt = sample.t;
       }
       return;
@@ -79,6 +79,10 @@ export class LiveCursorTimeline {
       insertByTime(clicks, { t: sample.t, x: sample.x, y: sample.y, kind: sample.kind, button: sample.button });
     }
 
+    if (this.open && this.leftAt !== null) {
+      dropExitAfter(this.open.samples, sample.t);
+      this.open.sampleIndex = Math.min(this.open.sampleIndex, this.open.samples.length - 1);
+    }
     const previous = this.open?.samples.at(-1);
     if (previous && previous.tabId !== sample.tabId) this.close(sample.t, 0);
     else if (this.leftAt !== null && sample.t - this.leftAt > LEAVE_MERGE_GAP) this.closeAfterLeave(this.leftAt, sample.t);
@@ -100,7 +104,7 @@ export class LiveCursorTimeline {
   }
 
   private closeAfterLeave(leftAt: number, returnedAt = Infinity) {
-    this.close(Math.min(leftAt + LEAVE_HOLD + LEAVE_FADE, returnedAt), LEAVE_FADE);
+    this.close(Math.min(leftAt + LEAVE_FADE, returnedAt), LEAVE_FADE);
   }
 
   private close(end: number, fadeOut: number) {
