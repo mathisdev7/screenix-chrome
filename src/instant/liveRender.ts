@@ -21,7 +21,7 @@ const FPS = 60;
 const POLL_INTERVAL_MS = 200;
 const ARRIVAL_SLACK = 0.6;
 const PREFETCH_FRAMES = 6;
-const MAX_HOLD_FRAMES = FPS;
+const MAX_HOLD_FRAMES = FPS / 10;
 const CATCH_UP_SECONDS = 1;
 const AUDIO_BLOCK_FRAMES = 4800;
 const PROGRESS_EVERY_FRAMES = 10;
@@ -230,9 +230,12 @@ export class LiveRender {
     if (cameraIndex >= 0) this.camera.prefetch(cameraIndex + 1, PREFETCH_FRAMES);
 
     const key = this.frameKey(time, frameIndex, cameraIndex);
-    if (!last && key === this.lastKey && index - this.lastEmitted < MAX_HOLD_FRAMES) return;
-    output.compositor.render(output.ctx, output.size, time, frame, cameraFrame);
-    if (output.watermark) paintWatermark(output.ctx, output.size, output.watermark);
+    const unchanged = !last && key === this.lastKey;
+    if (unchanged && index - this.lastEmitted < MAX_HOLD_FRAMES) return;
+    if (!unchanged) {
+      output.compositor.render(output.ctx, output.size, time, frame, cameraFrame);
+      if (output.watermark) paintWatermark(output.ctx, output.size, output.watermark);
+    }
     await output.encoder.addFrame(output.canvas, index);
     this.lastKey = key;
     this.lastEmitted = index;
