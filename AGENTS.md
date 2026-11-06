@@ -1,10 +1,10 @@
 # Screenix for Chrome: Agent Notes
 
-Screenix for Chrome is a Manifest V3 extension that records browser tabs without the system cursor, then re-renders a smooth macOS cursor in a Screenix-style editor and exports MP4/WebM. It is a companion to the Screenix desktop app (`/mnt/other/dev/screenix`) and is a closed-source, paid product: free with a Screenix watermark, unlocked with Screenix license keys.
+Screenix for Chrome is a Manifest V3 extension that records browser tabs without the system cursor, then re-renders a smooth macOS cursor in a Screenix-style editor and exports MP4/WebM. It is a companion to the Screenix desktop app (`/mnt/other/dev/screenix`) and is open source under the AGPLv3 (`LICENSE`, carve-outs in `NOTICE.md`). The store build is free for personal use with a Screenix watermark; commercial use and watermark removal need a Screenix license key. Outside contributions are covered by `CLA.md`, signed through `.github/workflows/cla.yml`, so the code can still be licensed commercially.
 
 ## Hard rules
 
-- Proprietary code. Keep it clean, small and idiomatic. Match the surrounding style.
+- Public code under the AGPLv3. Keep it clean, small and idiomatic. Match the surrounding style. Never commit secrets, private notes or customer data; `.agents/` and `.claude/` are ignored for that.
 - Do not add code comments. Write clearer code instead.
 - Do not load or run the extension in the user's browser. The user loads `dist/` in Chrome and reports back.
 - Build, type-check, lint and test commands are allowed: `bun run build`, `bun run typecheck`, `bun run lint`, `bun test`.
@@ -179,5 +179,4 @@ Working and checked by the user: tab recording with tab following, cursor re-ren
 
 Open:
 - "Share to Screenix" hosted links.
-- Initial git commit; nothing is committed yet.
-- The macOS Tahoe and macOS Dark cursor artwork is GPL-3.0; replace it with owned art before selling the closed extension.
+- The macOS Tahoe and macOS Dark cursor artwork is GPL-3.0. That is compatible with the AGPLv3 build, but a commercial license can't cover it; replace it with owned art before selling commercial licenses for the code.

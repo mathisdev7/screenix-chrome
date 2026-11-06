@@ -1,9 +1,17 @@
 Screenix for Chrome
-Copyright © 2026 Screenix. All rights reserved.
+Copyright (c) 2026-present Screenix
 
-This software is proprietary. You may not copy, modify, distribute,
-sublicense, decompile or reverse engineer it, except as permitted by law.
-Use is subject to the Screenix Terms of Service: https://screenix.studio/terms
+This program is free software: you can redistribute it and/or modify it under
+the terms of the GNU Affero General Public License version 3, as published by
+the Free Software Foundation. It is distributed WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+PURPOSE. See the full license at https://www.gnu.org/licenses/agpl-3.0.html.
 
-Third-party assets in cursors/themes/ are under their own licenses,
-included next to them.
+Source code: https://github.com/mathisdev7/screenix-chrome
+
+The Screenix name, logo, icons and watermark are not covered by the AGPLv3.
+Commercial use of this Screenix build needs a Screenix license:
+https://screenix.studio/chrome/pricing
+
+Third-party assets in cursors/ are under their own licenses, included next to
+them.

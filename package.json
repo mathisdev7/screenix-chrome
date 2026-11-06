@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.8.0",
   "type": "module",
-  "license": "UNLICENSED",
+  "license": "AGPL-3.0-only",
   "scripts": {
     "build": "tsc -b && vite build && vite build -c vite.content.config.ts --mode pointer-tracker && vite build -c vite.content.config.ts --mode license-bridge && vite build -c vite.content.config.ts --mode countdown-overlay",
     "typecheck": "tsc -b",

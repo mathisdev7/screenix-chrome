@@ -5,3 +5,5 @@ dist
 *.tsbuildinfo
 release
 x.env
+.agents
+.claude
