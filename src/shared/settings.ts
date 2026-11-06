@@ -130,7 +130,7 @@ export const DEFAULT_CURSOR_SETTINGS: CursorSettings = {
 export const DEFAULT_BACKGROUND_SETTINGS: BackgroundSettings = {
   enabled: true,
   kind: "image",
-  wallpaper: "builtin:MacBook Pro Dark",
+  wallpaper: "builtin:Aperture Vintage Blue",
   color: "#1a1a1a",
   gradientEndColor: "#000000",
   gradientAngle: 135,
