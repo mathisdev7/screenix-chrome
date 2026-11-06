@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { ProjectId } from "@/shared/types";
 import { LicenseDialog } from "./components/LicenseDialog";
+import { RatingDialog } from "./components/RatingDialog";
 import { openLicenseDialog } from "./hooks/useLicense";
 import { EditorPage } from "./pages/EditorPage";
 import { InstantPage } from "./pages/InstantPage";
@@ -62,6 +63,7 @@ export function App() {
         />
       )}
       <LicenseDialog />
+      <RatingDialog />
     </>
   );
 }

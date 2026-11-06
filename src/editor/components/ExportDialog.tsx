@@ -8,6 +8,7 @@ import type { SceneInputs } from "@/render/compositor";
 import type { ProjectMedia } from "@/render/projectMedia";
 import { ActionButton, SegmentedControl } from "./controls";
 import { currentLicense, type License } from "@/shared/license";
+import { countExport } from "@/shared/rating";
 import type { ProjectShare } from "@/shared/types";
 import { openLicenseDialog, openLicensePricing } from "../hooks/useLicense";
 import { useProgressWindow } from "../hooks/useProgressWindow";
@@ -15,6 +16,7 @@ import { isSharing, useShareLink } from "../hooks/useShareLink";
 import { rememberExport } from "../lib/exportCache";
 import { fileNameFor } from "../lib/format";
 import { ProgressWindow } from "./ProgressWindow";
+import { promptRatingIfDue } from "./RatingDialog";
 import { ShareStatus } from "./ShareStatus";
 
 const RESOLUTIONS = [
@@ -176,6 +178,7 @@ export function ExportDialog({ open, onOpenChange, media, inputs, license, onSha
     let result: SaveState;
     try {
       result = await saveVideoFile(video.blob, fileName);
+      if (result.status === "saved") await countExport();
     } catch (error) {
       result = { status: "failed", message: errorMessage(error) };
     }
@@ -188,6 +191,7 @@ export function ExportDialog({ open, onOpenChange, media, inputs, license, onSha
     shareLink.reset();
     setState({ status: "idle" });
     onOpenChange(false);
+    void promptRatingIfDue();
   };
 
   return (

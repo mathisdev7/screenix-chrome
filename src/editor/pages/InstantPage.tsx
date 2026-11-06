@@ -2,8 +2,10 @@ import { IconDownload, IconHome, IconLink, IconLoader2, IconMoon, IconPencil, Ic
 import { useEffect, useState } from "react";
 import { saveVideoFile } from "@/export/saveVideo";
 import { deleteProject, getProject, putProject } from "@/shared/db";
+import { countExport } from "@/shared/rating";
 import type { ProjectId, ProjectRecord } from "@/shared/types";
 import { LicenseStatus } from "../components/LicenseStatus";
+import { promptRatingIfDue } from "../components/RatingDialog";
 import { ShareStatus } from "../components/ShareStatus";
 import { IconButton, ProjectTitle } from "../components/TopBar";
 import { useInstantShare } from "../hooks/useInstantShare";
@@ -43,7 +45,11 @@ function InstantView({ initialProject, onHome, onEdit }: { initialProject: Proje
   const share = useInstantShare(project, ready?.video ?? null, ready?.poster ?? null, (next) => updateProject({ share: next }));
 
   const download = async () => {
-    if (ready) await saveVideoFile(ready.video, fileNameFor(project.name, "mp4")).catch(() => undefined);
+    if (!ready) return;
+    const result = await saveVideoFile(ready.video, fileNameFor(project.name, "mp4")).catch(() => null);
+    if (result?.status !== "saved") return;
+    await countExport();
+    await promptRatingIfDue();
   };
 
   const remove = async () => {
