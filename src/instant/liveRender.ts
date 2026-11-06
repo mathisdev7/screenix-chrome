@@ -8,7 +8,7 @@ import type { ClickEvent } from "@/render/cursor/timeline";
 import { FrameSequence } from "@/render/frameSequence";
 import { alignedSizeWithin, frameRectFor, outputAspect, videoRectFor, type Size } from "@/render/geometry";
 import { loadWallpaper } from "@/render/wallpapers";
-import { loadWatermark, paintWatermark } from "@/render/watermark";
+import { loadWatermark, paintWatermark, type Watermark } from "@/render/watermark";
 import { ZoomTimeline } from "@/render/zoom/zoomTimeline";
 import { getCameraFramesAfter, getFramesAfter, getPointerBatchesAfter } from "@/shared/db";
 import type { EditorSettings } from "@/shared/settings";
@@ -55,7 +55,7 @@ interface Output {
   inputs: SceneInputs;
   compositor: Compositor;
   encoder: VideoFileEncoder;
-  watermark: ImageBitmap | null;
+  watermark: Watermark | null;
 }
 
 function outputSize(source: Size, settings: EditorSettings): Size {
