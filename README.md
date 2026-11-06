@@ -1,8 +1,10 @@
 # Screenix for Chrome
 
-Record a Chrome tab without the system cursor, then get a smooth, redrawn cursor, zoom on clicks and a polished background in the editor. Everything is rendered and encoded in your browser.
+The open-source Screen Studio alternative for Chrome. Record any tab, then get a smooth cursor, zoom on clicks, your camera and a polished background, on any computer that runs Chrome. Everything is rendered and encoded in your browser.
 
-[Install from the Chrome Web Store](https://chromewebstore.google.com/detail/screenix-for-chrome/daodleelbenbcdllpfecilgeldnncemp) · [screenix.studio](https://screenix.studio)
+<a href="https://screenix.studio/chrome"><img src=".github/demo.webp" alt="Screenix for Chrome recording GitHub with a smooth cursor, browser frame and camera bubble" width="100%"></a>
+
+**[Add to Chrome](https://chromewebstore.google.com/detail/screenix-for-chrome/daodleelbenbcdllpfecilgeldnncemp)** · [Watch the full demo](https://screenix.studio/chrome) · [screenix.studio](https://screenix.studio)
 
 Screenix for Chrome is the browser companion to the [Screenix](https://screenix.studio) desktop app. It records browser tabs only, not your desktop or other apps.
 
@@ -75,3 +77,13 @@ Bug reports, fixes and improvements are welcome. Read [CONTRIBUTING.md](CONTRIBU
 ## Security
 
 Please report vulnerabilities privately. See [SECURITY.md](SECURITY.md).
+
+## On Linux? Record your whole desktop
+
+Screenix for Chrome records browser tabs only. To record your whole screen or any app, [Screenix](https://screenix.studio) is the desktop app for Linux, with the same smooth cursor, auto zoom and camera.
+
+```bash
+curl -fsSL screenix.studio/install | sh
+```
+
+The installer detects your distro and installs the right package (.deb, .rpm, AUR or Nix). Packages and release notes are in [screenix-releases](https://github.com/mathisdev7/screenix-releases).
