@@ -11,7 +11,8 @@ import { readCameraBubbleStyle } from "@/shared/cameraBubbleStyle";
 import { cameraPageUrl, issueCameraPageToken, revokeCameraPageToken } from "@/shared/cameraPage";
 import { COUNTDOWN_PORT_NAME, type CountdownCamera } from "@/shared/countdown";
 import { readInstantStatus, writeInstantStatus } from "@/shared/instant";
-import { activateLicenseKey, LicenseActivationError, refreshLicense } from "@/shared/license";
+import { activateLicenseKey, LicenseActivationError, readLicense, refreshLicense } from "@/shared/license";
+import { SCREENIX_ORIGIN } from "@/shared/screenixOrigin";
 import type { ProjectId, ProjectRecord } from "@/shared/types";
 import { Countdown } from "./countdown";
 import { MediaCapture } from "./mediaCapture";
@@ -146,7 +147,13 @@ async function updateInstantProgress(projectId: ProjectId, progress: number) {
   if (current?.projectId === projectId && current.state === "rendering") await writeInstantStatus({ projectId, state: "rendering", progress });
 }
 
-async function handleRequest(request: BackgroundRequest): Promise<BackgroundResponse> {
+async function activateFromPage(licenseKey: string, sender: chrome.runtime.MessageSender) {
+  if (sender.origin !== SCREENIX_ORIGIN) throw new Error("License keys can only be activated from screenix.studio.");
+  if (await readLicense()) throw new Error("This browser already has a Screenix license. Deactivate it in the extension before activating another key.");
+  await activateLicenseKey(licenseKey);
+}
+
+async function handleRequest(request: BackgroundRequest, sender: chrome.runtime.MessageSender): Promise<BackgroundResponse> {
   try {
     switch (request.type) {
       case "recording/start":
@@ -156,7 +163,7 @@ async function handleRequest(request: BackgroundRequest): Promise<BackgroundResp
         await stopRecording();
         break;
       case "license/activate-key":
-        await activateLicenseKey(request.licenseKey);
+        await activateFromPage(request.licenseKey, sender);
         break;
       case "instant/progress":
         await updateInstantProgress(request.projectId, request.progress);
@@ -181,8 +188,8 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === LICENSE_REFRESH_ALARM) void refreshLicense();
 });
 
-chrome.runtime.onMessage.addListener((request: BackgroundRequest, _sender, sendResponse) => {
-  void handleRequest(request).then(sendResponse);
+chrome.runtime.onMessage.addListener((request: BackgroundRequest, sender, sendResponse) => {
+  void handleRequest(request, sender).then(sendResponse);
   return true;
 });
 

@@ -34,7 +34,7 @@ export function createManifest(): chrome.runtime.ManifestV3 {
         description: "Start or stop recording",
       },
     },
-    web_accessible_resources: [{ resources: ["camera.html"], matches: ["<all_urls>"] }],
+    web_accessible_resources: [{ resources: ["camera.html"], matches: ["<all_urls>"], use_dynamic_url: true }],
     content_scripts: [
       { matches: [licensePagePattern()], js: ["license-bridge.js"], run_at: "document_start" },
     ],

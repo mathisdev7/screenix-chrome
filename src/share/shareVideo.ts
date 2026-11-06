@@ -91,6 +91,7 @@ export async function shareVideo({ video, thumbnail, title, durationSeconds, onP
     title,
     durationSeconds: Math.max(1, Math.ceil(durationSeconds)),
     fileSizeBytes: video.size,
+    thumbnailSizeBytes: thumbnail?.size ?? null,
     uploadRequestId: crypto.randomUUID(),
   }, signal);
   if (!created.shareId || !created.uploadUrl) throw new ShareError("Couldn't create the share link.", false);
