@@ -49,6 +49,9 @@ scope.addEventListener("message", (event) => {
     case "audio":
       render?.addAudio(request.chunk);
       break;
+    case "page":
+      render?.addPage(request.page);
+      break;
     case "finish":
       render?.finish(request.duration);
       break;

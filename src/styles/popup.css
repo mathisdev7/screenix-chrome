@@ -29,29 +29,6 @@
   color: var(--foreground);
 }
 
-.popup-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  height: 26px;
-  padding-inline: 9px;
-  border: 1px solid var(--control-edge);
-  border-radius: 8px;
-  color: var(--control-muted);
-  font-size: 11px;
-  transition: background-color 150ms ease, color 150ms ease;
-}
-
-.popup-chip:hover {
-  background: var(--control-hover);
-}
-
-.popup-chip[aria-pressed="true"] {
-  color: var(--ring);
-  border-color: color-mix(in srgb, var(--ring) 40%, transparent);
-  background: color-mix(in srgb, var(--ring) 10%, transparent);
-}
-
 .popup-sources {
   border: 1px solid var(--control-edge);
   border-radius: 11px;

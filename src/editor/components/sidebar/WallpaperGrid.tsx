@@ -42,7 +42,7 @@ export function WallpaperGrid({ value, onSelect, onUpload }: {
   );
 }
 
-function WallpaperOptions({ wallpapers, selected, onSelect }: {
+export function WallpaperOptions({ wallpapers, selected, onSelect }: {
   wallpapers: readonly Wallpaper[];
   selected: Wallpaper | undefined;
   onSelect: (value: string) => void;

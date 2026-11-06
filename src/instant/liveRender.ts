@@ -1,11 +1,12 @@
 import { EXPORT_SAMPLE_RATE } from "@/export/audioEncoding";
 import { VideoFileEncoder, type EncodedVideo } from "@/export/encoder";
-import { Compositor } from "@/render/compositor";
+import { BrowserPages, type BrowserPage } from "@/render/browserBar";
+import { Compositor, type SceneInputs } from "@/render/compositor";
 import { cursorStateAt } from "@/render/cursor/cursorState";
 import type { CursorSprites } from "@/render/cursor/theme";
 import type { ClickEvent } from "@/render/cursor/timeline";
 import { FrameSequence } from "@/render/frameSequence";
-import { alignedSizeWithin, frameRectFor, videoRectFor, type Size } from "@/render/geometry";
+import { alignedSizeWithin, frameRectFor, outputAspect, videoRectFor, type Size } from "@/render/geometry";
 import { loadWallpaper } from "@/render/wallpapers";
 import { loadWatermark, paintWatermark } from "@/render/watermark";
 import { ZoomTimeline } from "@/render/zoom/zoomTimeline";
@@ -51,14 +52,16 @@ interface Output {
   size: Size;
   canvas: OffscreenCanvas;
   ctx: OffscreenCanvasRenderingContext2D;
+  inputs: SceneInputs;
   compositor: Compositor;
   encoder: VideoFileEncoder;
   watermark: ImageBitmap | null;
 }
 
-function outputSize(source: Size): Size {
-  const scale = Math.min(1, MAX_OUTPUT_LONG_SIDE / Math.max(source.width, source.height));
-  return alignedSizeWithin({ width: source.width * scale, height: source.height * scale });
+function outputSize(source: Size, settings: EditorSettings): Size {
+  const height = source.width / outputAspect(settings, source);
+  const scale = Math.min(1, MAX_OUTPUT_LONG_SIDE / Math.max(source.width, height));
+  return alignedSizeWithin({ width: source.width * scale, height: height * scale });
 }
 
 function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> {
@@ -79,6 +82,8 @@ export class LiveRender {
   private readonly audio: LiveAudioMixer;
   private readonly zoom: LiveZoom | null;
   private readonly lastSeq = { frames: -1, camera: -1, pointer: -1 };
+  private readonly pages: BrowserPage[] = [];
+  private browser = BrowserPages.empty;
   private output: Output | null = null;
   private nextFrame = 0;
   private audioFrame = 0;
@@ -100,6 +105,16 @@ export class LiveRender {
 
   addAudio(chunk: LiveAudioChunk) {
     this.audio.add(chunk);
+  }
+
+  addPage(page: BrowserPage) {
+    const index = this.pages.findLastIndex((existing) => existing.t <= page.t);
+    this.pages.splice(index + 1, 0, page);
+    this.browser = new BrowserPages([...this.pages]);
+    const output = this.output;
+    if (!output) return;
+    output.inputs = { ...output.inputs, browser: this.browser };
+    output.compositor.update(output.inputs);
   }
 
   finish(duration: number) {
@@ -177,7 +192,7 @@ export class LiveRender {
     const { settings, watermarked, projectId } = this.options;
     const { background } = settings;
     const source = this.frames.length > 0 ? await this.frameSize(this.frames.length - 1) : FALLBACK_SOURCE;
-    const size = outputSize(source);
+    const size = outputSize(source, settings);
     const canvas = new OffscreenCanvas(size.width, size.height);
     const ctx = canvas.getContext("2d", { alpha: false });
     if (!ctx) throw new Error("Could not create a drawing surface for the instant video.");
@@ -193,7 +208,7 @@ export class LiveRender {
       instantEncoderChoice(size, FPS),
     ]);
     const encoder = await VideoFileEncoder.create(size, FPS, choice, this.audio.hasAudio);
-    const compositor = new Compositor({
+    const inputs: SceneInputs = {
       settings,
       source,
       timeline: this.cursor.timeline,
@@ -201,8 +216,9 @@ export class LiveRender {
       sprites,
       zoomSprites,
       wallpaper: wallpaperImage,
-    });
-    return { size, canvas, ctx, compositor, encoder, watermark };
+      browser: this.browser,
+    };
+    return { size, canvas, ctx, inputs, compositor: new Compositor(inputs), encoder, watermark };
   }
 
   private async cursorSprites(width: number): Promise<{ sprites: CursorSprites; zoomSprites: CursorSprites | null }> {
@@ -229,7 +245,7 @@ export class LiveRender {
     this.camera.pin(cameraIndex);
     if (cameraIndex >= 0) this.camera.prefetch(cameraIndex + 1, PREFETCH_FRAMES);
 
-    const key = this.frameKey(time, frameIndex, cameraIndex);
+    const key = this.frameKey(time, frameIndex, cameraIndex, this.pages.findLastIndex((page) => page.t <= time));
     const unchanged = !last && key === this.lastKey;
     if (unchanged && index - this.lastEmitted < MAX_HOLD_FRAMES) return;
     if (!unchanged) {
@@ -244,17 +260,18 @@ export class LiveRender {
     }
   }
 
-  private frameKey(time: number, frameIndex: number, cameraIndex: number): string {
+  private frameKey(time: number, frameIndex: number, cameraIndex: number, pageIndex: number): string {
     const { cursor } = this.options.settings;
     const effect = cursor.clickEffect !== "none" && hasRecentClick(this.cursor.timeline.clicks, time) ? time : "";
     const zoom = this.zoom?.at(time);
     const view = zoom ? [zoom.scale.toFixed(4), Math.round(zoom.centerX * POSITION_STEPS), Math.round(zoom.centerY * POSITION_STEPS)] : [];
     const state = cursorStateAt(this.cursor.timeline, time, cursor);
-    if (!state) return [frameIndex, cameraIndex, effect, ...view].join("|");
+    if (!state) return [frameIndex, cameraIndex, pageIndex, effect, ...view].join("|");
     const position = [state.x, state.y, state.previousX, state.previousY].map((value) => Math.round(value * POSITION_STEPS));
     return [
       frameIndex,
       cameraIndex,
+      pageIndex,
       effect,
       ...view,
       ...position,

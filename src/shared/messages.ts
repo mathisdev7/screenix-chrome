@@ -1,7 +1,7 @@
 import type { PageCameraBubble } from "./cameraBubbleStyle";
 import type { PagePoint } from "./countdown";
 import type { EditorSettings } from "./settings";
-import type { AudioTrackInfo, CameraInfo, CapturedPointerSample, ProjectId } from "./types";
+import type { AudioTrackInfo, CameraInfo, CapturedPointerSample, PageVisit, ProjectId } from "./types";
 
 export const POINTER_PORT_NAME = "screenix-pointer";
 
@@ -61,6 +61,7 @@ export type OffscreenRequest =
   | { target: typeof OFFSCREEN_TARGET; type: "media/release" }
   | { target: typeof OFFSCREEN_TARGET; type: "media/start"; capture: MediaCaptureRequest }
   | { target: typeof OFFSCREEN_TARGET; type: "media/stop" }
+  | { target: typeof OFFSCREEN_TARGET; type: "instant/page"; page: PageVisit }
   | { target: typeof OFFSCREEN_TARGET; type: "instant/finish"; duration: number };
 
 export interface RecordedMedia {

@@ -30,6 +30,7 @@ export default defineConfig({
         recorder: resolve(root, "recorder.html"),
         camera: resolve(root, "camera.html"),
         cameraSetup: resolve(root, "camera-setup.html"),
+        instantSetup: resolve(root, "instant-setup.html"),
         background: resolve(root, "src/background/index.ts"),
       },
       output: {

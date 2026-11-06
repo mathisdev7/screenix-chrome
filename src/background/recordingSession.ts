@@ -84,7 +84,7 @@ export class RecordingSession {
     const [activeTab] = await chrome.tabs.query({ active: true, windowId: this.windowId });
     if (this.isInstant) {
       this.instant = {
-        settings: instantSettings(this.capture.instantLook),
+        settings: instantSettings(this.capture.instantLook, this.capture.instantStyle),
         watermarked: (await readLicense()) === null,
         autoZoom: this.capture.instantZoom,
       };
@@ -205,7 +205,9 @@ export class RecordingSession {
     const sameSite = last !== undefined && URL.parse(last.url)?.host === URL.parse(tab.url)?.host;
     const favIconUrl = tab.favIconUrl ?? (sameSite ? last.favIconUrl : null);
     if (last?.url === tab.url && last.favIconUrl === favIconUrl) return;
-    this.pages.push({ t: this.secondsSinceStart(Date.now()), url: tab.url, favIconUrl });
+    const page = { t: this.secondsSinceStart(Date.now()), url: tab.url, favIconUrl };
+    this.pages.push(page);
+    if (this.instant && this.instant.settings.background.browserFrame !== "off") this.media?.addInstantPage(page);
   }
 
   private secondsSinceStart(epochMs: number): number {

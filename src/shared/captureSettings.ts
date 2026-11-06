@@ -1,5 +1,5 @@
 import type { CountdownSeconds } from "./countdown";
-import type { InstantLook, RecordingMode } from "./instant";
+import { DEFAULT_INSTANT_STYLE, normalizeInstantStyle, type InstantLook, type InstantStyle, type RecordingMode } from "./instant";
 
 export const CAMERA_BUBBLES = ["recording", "countdown", "off"] as const;
 
@@ -13,18 +13,31 @@ export interface CaptureSettings {
   mode: RecordingMode;
   instantLook: InstantLook;
   instantZoom: boolean;
+  instantStyle: InstantStyle;
   countdown: CountdownSeconds;
   cameraBubble: CameraBubble;
 }
 
 const STORAGE_KEY = "captureSettings";
 
-const DEFAULT_CAPTURE_SETTINGS: CaptureSettings = { microphoneId: null, microphoneGain: 1, cameraId: null, tabAudio: true, mode: "studio", instantLook: "full", instantZoom: false, countdown: 3, cameraBubble: "countdown" };
+const DEFAULT_CAPTURE_SETTINGS: CaptureSettings = { microphoneId: null, microphoneGain: 1, cameraId: null, tabAudio: true, mode: "studio", instantLook: "full", instantZoom: false, instantStyle: DEFAULT_INSTANT_STYLE, countdown: 3, cameraBubble: "countdown" };
 
 export async function readCaptureSettings(): Promise<CaptureSettings> {
   const stored = await chrome.storage.local.get(STORAGE_KEY);
-  const settings = { ...DEFAULT_CAPTURE_SETTINGS, ...(stored[STORAGE_KEY] as Partial<CaptureSettings> | undefined) };
+  return normalizeCaptureSettings(stored[STORAGE_KEY] as Partial<CaptureSettings> | undefined);
+}
+
+function normalizeCaptureSettings(stored: Partial<CaptureSettings> | undefined): CaptureSettings {
+  const settings = { ...DEFAULT_CAPTURE_SETTINGS, ...stored, instantStyle: normalizeInstantStyle(stored?.instantStyle) };
   return CAMERA_BUBBLES.includes(settings.cameraBubble) ? settings : { ...settings, cameraBubble: DEFAULT_CAPTURE_SETTINGS.cameraBubble };
+}
+
+export function onCaptureSettingsChanged(listener: (settings: CaptureSettings) => void): () => void {
+  const handle = (changes: Record<string, chrome.storage.StorageChange>, area: string) => {
+    if (area === "local" && STORAGE_KEY in changes) listener(normalizeCaptureSettings(changes[STORAGE_KEY].newValue as Partial<CaptureSettings> | undefined));
+  };
+  chrome.storage.onChanged.addListener(handle);
+  return () => chrome.storage.onChanged.removeListener(handle);
 }
 
 export function cameraBubbleOf(settings: CaptureSettings): CameraBubble {

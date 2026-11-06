@@ -45,7 +45,7 @@ export function displayUrl(url: string, showDetails: boolean): { host: string; p
   return { host: parsed.host.replace(/^www\./, ""), path };
 }
 
-async function loadFavicon(url: string): Promise<ImageBitmap | null> {
+export async function loadFavicon(url: string): Promise<ImageBitmap | null> {
   try {
     const response = await fetch(url);
     if (!response.ok) return null;

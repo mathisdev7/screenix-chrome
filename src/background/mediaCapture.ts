@@ -1,6 +1,6 @@
 import type { CaptureSettings } from "@/shared/captureSettings";
 import { OFFSCREEN_TARGET, type InstantRenderRequest, type OffscreenRequest, type OffscreenResponse, type RecordedMedia } from "@/shared/messages";
-import type { ProjectId } from "@/shared/types";
+import type { PageVisit, ProjectId } from "@/shared/types";
 
 const RECORDER_DOCUMENT = "recorder.html";
 const NO_MEDIA: RecordedMedia = { audioTracks: [], camera: null };
@@ -81,6 +81,10 @@ export class MediaCapture {
   async stop(): Promise<RecordedMedia> {
     const response = await sendToRecorder({ target: OFFSCREEN_TARGET, type: "media/stop" }).catch(() => null);
     return response?.ok && response.media ? response.media : NO_MEDIA;
+  }
+
+  addInstantPage(page: PageVisit) {
+    void sendToRecorder({ target: OFFSCREEN_TARGET, type: "instant/page", page }).catch(() => undefined);
   }
 
   async finishInstant(duration: number): Promise<void> {

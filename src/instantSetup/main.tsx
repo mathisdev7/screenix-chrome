@@ -1,0 +1,18 @@
+import { StrictMode } from "react";
+import { createRoot } from "react-dom/client";
+import "@/styles/theme.css";
+import "@/styles/controls.css";
+import "@/styles/editor.css";
+import { applyTheme, readStoredTheme } from "@/editor/hooks/useTheme";
+import { InstantSetupPage } from "./InstantSetupPage";
+
+applyTheme(readStoredTheme());
+
+const root = document.getElementById("root");
+if (root) {
+  createRoot(root).render(
+    <StrictMode>
+      <InstantSetupPage />
+    </StrictMode>,
+  );
+}

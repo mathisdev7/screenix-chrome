@@ -171,6 +171,9 @@ async function handle(request: OffscreenRequest): Promise<OffscreenResponse> {
         return { ok: true };
       case "media/stop":
         return { ok: true, media: await stop() };
+      case "instant/page":
+        active?.instant?.addPage(request.page);
+        return { ok: true };
       case "instant/finish":
         await finishInstant(request.duration);
         return { ok: true };

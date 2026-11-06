@@ -1,6 +1,7 @@
-import { IconMicrophone, IconPhoto, IconVolume, IconZoomIn, type Icon } from "@tabler/icons-react";
-import type { ReactNode } from "react";
+import { IconAdjustmentsHorizontal, IconMicrophone, IconVolume } from "@tabler/icons-react";
 import { SegmentedControl } from "@/editor/components/controls";
+import { CLICK_EFFECT_OPTIONS } from "@/editor/components/sidebar/clickEffectIcons";
+import type { CaptureSettings } from "@/shared/captureSettings";
 import type { RecordingMode } from "@/shared/instant";
 import { CameraSource } from "./CameraSource";
 import { MicrophoneGain, MicrophoneMeter, formatGain } from "./MicrophoneGain";
@@ -12,13 +13,17 @@ const MODES: readonly { value: RecordingMode; label: string }[] = [
   { value: "instant", label: "Instant" },
 ];
 
-function Chip({ icon: ChipIcon, active, onClick, children }: { icon: Icon; active: boolean; onClick: () => void; children: ReactNode }) {
-  return (
-    <button type="button" aria-pressed={active} onClick={onClick} className="popup-chip">
-      <ChipIcon size={13} stroke={1.8} />
-      {children}
-    </button>
-  );
+const INSTANT_SETUP_PAGE = "instant-setup.html";
+
+function instantSummary({ instantLook, instantZoom, instantStyle }: CaptureSettings): string {
+  const clickEffect = CLICK_EFFECT_OPTIONS.find(({ value }) => value === instantStyle.clickEffect);
+  return [
+    `Cursor ${instantStyle.cursorSize.toFixed(1)}%`,
+    instantStyle.clickEffect !== "none" && clickEffect && `${clickEffect.label} clicks`,
+    instantLook === "framed" && "Background",
+    instantZoom && "Zoom on clicks",
+    instantStyle.browserFrame !== "off" && "Browser frame",
+  ].filter(Boolean).join(" · ");
 }
 
 export function SetupView({ state, onChange }: { state: MediaState; onChange: (patch: CapturePatch) => void }) {
@@ -32,17 +37,16 @@ export function SetupView({ state, onChange }: { state: MediaState; onChange: (p
         {settings.mode === "studio" ? (
           <p className="px-0.5 text-[11px] leading-snug text-muted-foreground">Edit the cursor, zoom and camera afterwards.</p>
         ) : (
-          <div className="flex gap-1.5">
-            <Chip
-              icon={IconPhoto}
-              active={settings.instantLook === "framed"}
-              onClick={() => onChange({ instantLook: settings.instantLook === "framed" ? "full" : "framed" })}
+          <div className="space-y-1.5">
+            <button
+              type="button"
+              onClick={() => void chrome.tabs.create({ url: chrome.runtime.getURL(INSTANT_SETUP_PAGE) })}
+              className="sidebar-choice flex h-8 w-full items-center justify-center gap-1.5 text-[12px]"
             >
-              Background
-            </Chip>
-            <Chip icon={IconZoomIn} active={settings.instantZoom} onClick={() => onChange({ instantZoom: !settings.instantZoom })}>
-              Zoom on clicks
-            </Chip>
+              <IconAdjustmentsHorizontal size={14} stroke={1.8} />
+              Cursor, clicks and background
+            </button>
+            <p className="truncate px-0.5 text-[11px] leading-snug text-muted-foreground">{instantSummary(settings)}</p>
           </div>
         )}
       </section>

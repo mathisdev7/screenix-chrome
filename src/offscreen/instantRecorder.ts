@@ -1,7 +1,9 @@
 import type { InstantWorkerReply, InstantWorkerRequest } from "@/instant/instantWorkerProtocol";
 import type { LiveAudioChunk } from "@/instant/liveAudioMixer";
 import type { LiveRenderOptions } from "@/instant/liveRender";
+import { loadFavicon } from "@/render/browserBar";
 import { rasterizeCursorSprites } from "@/render/cursor/theme";
+import type { PageVisit } from "@/shared/types";
 
 export class InstantRecorder {
   private readonly worker = new Worker(new URL("../instant/instantRenderWorker.ts", import.meta.url), { type: "module" });
@@ -34,6 +36,12 @@ export class InstantRecorder {
 
   addAudio(chunk: LiveAudioChunk) {
     this.post({ type: "audio", chunk });
+  }
+
+  addPage({ t, url, favIconUrl }: PageVisit) {
+    void (favIconUrl ? loadFavicon(favIconUrl) : Promise.resolve(null)).then((favicon) => {
+      this.post({ type: "page", page: { t, url, favicon } }, favicon ? [favicon] : []);
+    });
   }
 
   async finish(duration: number): Promise<void> {

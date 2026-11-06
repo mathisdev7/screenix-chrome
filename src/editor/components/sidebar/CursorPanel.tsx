@@ -29,7 +29,7 @@ function swayLabel(value: number): string {
   return "Heavy";
 }
 
-function ThemePicker({ theme, onChange }: {
+export function ThemePicker({ theme, onChange }: {
   theme: CursorSettings["theme"];
   onChange: (theme: CursorSettings["theme"]) => void;
 }) {
