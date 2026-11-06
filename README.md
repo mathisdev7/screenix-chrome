@@ -1,12 +1,28 @@
-# Screenix for Chrome
+<p align="center">
+  <a href="https://screenix.studio/chrome"><img src=".github/logo.png" width="120" height="120" alt="Screenix logo"></a>
+</p>
 
-The open-source Screen Studio alternative for Chrome. Record any tab, then get a smooth cursor, zoom on clicks, your camera and a polished background, on any computer that runs Chrome. Everything is rendered and encoded in your browser.
+<h1 align="center">Screenix for Chrome</h1>
 
-<a href="https://screenix.studio/chrome"><img src=".github/demo.webp" alt="Screenix for Chrome recording GitHub with a smooth cursor, browser frame and camera bubble" width="100%"></a>
+<p align="center">The open-source Screen Studio alternative for Chrome. Smooth cursor, auto zoom and your camera, on any computer that runs Chrome.</p>
 
-**[Add to Chrome](https://chromewebstore.google.com/detail/screenix-for-chrome/daodleelbenbcdllpfecilgeldnncemp)** · [Watch the full demo](https://screenix.studio/chrome) · [screenix.studio](https://screenix.studio)
+<p align="center">
+  <a href="https://chromewebstore.google.com/detail/screenix-for-chrome/daodleelbenbcdllpfecilgeldnncemp">Add to Chrome</a> |
+  <a href="https://screenix.studio/chrome">Website</a> |
+  <a href="https://screenix.studio/chrome/pricing">Pricing</a> |
+  <a href="#build-and-load-it-unpacked">Build from source</a>
+</p>
 
-Screenix for Chrome is the browser companion to the [Screenix](https://screenix.studio) desktop app. It records browser tabs only, not your desktop or other apps.
+<p align="center">
+  <a href="https://chromewebstore.google.com/detail/screenix-for-chrome/daodleelbenbcdllpfecilgeldnncemp"><img src="https://img.shields.io/chrome-web-store/v/daodleelbenbcdllpfecilgeldnncemp?label=Chrome%20Web%20Store" alt="Chrome Web Store version"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/mathisdev7/screenix-chrome" alt="AGPL-3.0 license"></a>
+</p>
+
+<p align="center">
+  <a href="https://screenix.studio/chrome"><img src=".github/demo.webp" width="100%" alt="Screenix for Chrome recording apple.com with a wallpaper, browser frame, smooth cursor and camera bubble"></a>
+</p>
+
+Screenix for Chrome records a tab without the system cursor, then redraws a smooth cursor, zooms on your clicks and adds your camera, a background and a browser frame. Everything is rendered and encoded in your browser, and your recordings never leave it unless you create a share link. It is the browser companion to the [Screenix](https://screenix.studio) desktop app and records browser tabs only, not your desktop or other apps.
 
 ## Features
 
