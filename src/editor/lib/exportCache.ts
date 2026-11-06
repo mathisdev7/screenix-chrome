@@ -22,7 +22,7 @@ export function rememberExport(projectId: string, settings: EditorSettings, vide
 export function shareableExport(projectId: string, settings: EditorSettings): CachedExport | null {
   const cached = latest;
   if (!cached || cached.key !== exportKey(projectId, settings)) return null;
-  return !cached.watermarked && cached.video.extension === "mp4" ? cached : null;
+  return !cached.watermarked && cached.video.format === "mp4-h264" ? cached : null;
 }
 
 export function rememberShare(video: EncodedVideo, share: ProjectShare) {

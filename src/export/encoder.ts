@@ -57,6 +57,7 @@ export const FORMAT_LABELS: Record<VideoFormat, string> = {
 
 export interface EncodedVideo {
   blob: Blob;
+  format: VideoFormat;
   extension: FormatSpec["container"];
 }
 
@@ -101,6 +102,10 @@ export async function encoderSupport(choice: EncoderChoice, size: Size, fps: num
   return { available: plan !== null, constantQuality: plan?.config.bitrateMode === "quantizer" };
 }
 
+export async function preferredEncoder(format: VideoFormat, size: Size, fps: number): Promise<EncoderPreference> {
+  return (await encoderSupport({ format, encoder: "hardware" }, size, fps)).available ? "hardware" : "software";
+}
+
 export class VideoFileEncoder {
   private readonly encoder: VideoEncoder;
   private readonly frameOptions: VideoEncoderEncodeOptions;
@@ -112,7 +117,7 @@ export class VideoFileEncoder {
     plan: EncoderPlan,
     private readonly muxer: Muxer,
     private readonly audio: AudioTrackEncoder | null,
-    private readonly extension: EncodedVideo["extension"],
+    private readonly format: VideoFormat,
     private readonly fps: number,
   ) {
     this.frameOptions = plan.frameOptions;
@@ -136,7 +141,7 @@ export class VideoFileEncoder {
     if (withAudio && !audioPlan) throw new Error(`This browser can't encode audio for ${FORMAT_LABELS[choice.format]}. Try another format.`);
     const muxer = createMuxer(spec.container, { codec: spec.muxerCodec, size, fps }, audioPlan?.track ?? null);
     const audio = audioPlan ? new AudioTrackEncoder(audioPlan, muxer) : null;
-    return new VideoFileEncoder(plan, muxer, audio, spec.container, fps);
+    return new VideoFileEncoder(plan, muxer, audio, choice.format, fps);
   }
 
   async addFrame(canvas: OffscreenCanvas, index: number) {
@@ -162,7 +167,7 @@ export class VideoFileEncoder {
     await Promise.all([this.encoder.flush(), this.audio?.flush()]);
     if (this.error) throw this.error;
     this.encoder.close();
-    return { blob: this.muxer.finish(), extension: this.extension };
+    return { blob: this.muxer.finish(), format: this.format, extension: FORMATS[this.format].container };
   }
 
   cancel() {

@@ -1,7 +1,7 @@
 import { Dialog } from "@base-ui/react/dialog";
 import { IconLoader2, IconX } from "@tabler/icons-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { encoderSupport, FORMAT_LABELS, type EncodedVideo, type EncoderPreference, type EncoderSupport } from "@/export/encoder";
+import { encoderSupport, FORMAT_LABELS, preferredEncoder, type EncodedVideo, type EncoderPreference, type EncoderSupport } from "@/export/encoder";
 import { saveVideoFile } from "@/export/saveVideo";
 import { exportSize, exportVideo, type ExportFrameRate, type ExportOptions, type ExportResolution } from "@/export/exportVideo";
 import type { SceneInputs } from "@/render/compositor";
@@ -33,7 +33,7 @@ const FRAME_RATES = [
   { value: "120", label: "120 fps" },
 ] as const;
 
-const FORMATS = (["mp4-av1", "mp4-h264", "webm-vp9"] as const).map((value) => ({ value, label: FORMAT_LABELS[value] }));
+const FORMATS = (["mp4-h264", "mp4-av1", "webm-vp9"] as const).map((value) => ({ value, label: FORMAT_LABELS[value] }));
 
 const ENCODERS = [
   { value: "software", label: "Software" },
@@ -134,14 +134,26 @@ export function ExportDialog({ open, onOpenChange, media, inputs, license, onSha
   license: License | null;
   onShared: (share: ProjectShare) => void;
 }) {
-  const [options, setOptions] = useState<ExportOptions>({ resolution: "1080", fps: 60, format: "mp4-av1", encoder: "software" });
+  const [options, setOptions] = useState<ExportOptions>({ resolution: "1080", fps: 60, format: "mp4-h264", encoder: "software" });
   const [state, setState] = useState<ExportState>({ status: "idle" });
   const abortRef = useRef<AbortController | null>(null);
   const size = exportSize(inputs.settings, media.source, options.resolution);
   const exporting = state.status === "exporting";
   const support = useEncoderSupport(options, size.width, size.height);
   const shareLink = useShareLink(media, inputs, onShared);
-  const shareable = options.format !== "webm-vp9";
+  const shareable = options.format === "mp4-h264";
+
+  const initialOutput = useRef({ size, fps: options.fps });
+  useEffect(() => {
+    let active = true;
+    const { size: initialSize, fps } = initialOutput.current;
+    void preferredEncoder("mp4-h264", initialSize, fps).then((encoder) => {
+      if (active && encoder === "hardware") setOptions((current) => (current.format === "mp4-h264" ? { ...current, encoder } : current));
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
   const uploading = isSharing(shareLink.state);
   const progressWindow = useProgressWindow();
 
@@ -233,8 +245,11 @@ export function ExportDialog({ open, onOpenChange, media, inputs, license, onSha
             {support?.available === false && <span className="text-destructive"> · This encoder isn't available in your browser at this size.</span>}
             {support?.available && !support.constantQuality && (
               <span className="block pt-1 text-[#d9a45a]">
-                This encoder can't run at constant quality here, so dark pages may show blocky trails. MP4 · AV1 gives the cleanest result.
+                This encoder can't run at constant quality here, so very dark pages may look slightly blocky. MP4 · AV1 is cleaner, but not every device can play it.
               </span>
+            )}
+            {options.format === "mp4-av1" && (
+              <span className="block pt-1">AV1 is smaller and cleaner, but older iPhones and Macs and some sites, like X, can't play it. Pick H.264 to post it anywhere.</span>
             )}
           </p>
 
@@ -251,7 +266,7 @@ export function ExportDialog({ open, onOpenChange, media, inputs, license, onSha
           )}
           {state.status === "done" && state.save && <SaveStatus save={state.save} />}
           <ShareStatus share={shareLink.state} />
-          {!shareable && <p className="text-[11px] text-muted-foreground">Share links need an MP4 format.</p>}
+          {!shareable && <p className="text-[11px] text-muted-foreground">Share links use MP4 · H.264, so every viewer can play them.</p>}
           {license ? (
             <p className="flex items-center gap-2 text-[12px] text-muted-foreground">
               <span className="size-1.5 shrink-0 rounded-full bg-[#70b38f]" />
