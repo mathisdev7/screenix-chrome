@@ -1,6 +1,7 @@
-import { ArrayBufferTarget as Mp4Target, Muxer as Mp4Muxer } from "mp4-muxer";
-import { ArrayBufferTarget as WebmTarget, Muxer as WebmMuxer } from "webm-muxer";
+import { Muxer as Mp4Muxer, StreamTarget as Mp4Target } from "mp4-muxer";
+import { Muxer as WebmMuxer, StreamTarget as WebmTarget } from "webm-muxer";
 import type { Size } from "@/render/geometry";
+import { ChunkedFile } from "./chunkedFile";
 
 export type Container = "mp4" | "webm";
 
@@ -23,8 +24,9 @@ export interface Muxer {
 }
 
 function createWebmMuxer(video: MuxerVideoTrack, audio: MuxerAudioTrack | null): Muxer {
+  const file = new ChunkedFile();
   const muxer = new WebmMuxer({
-    target: new WebmTarget(),
+    target: new WebmTarget({ onData: (data, position) => file.write(data, position), chunked: true }),
     video: { codec: video.codec, width: video.size.width, height: video.size.height, frameRate: video.fps },
     ...(audio ? { audio: { codec: audio.codec, sampleRate: audio.sampleRate, numberOfChannels: audio.channels } } : {}),
     firstTimestampBehavior: "offset",
@@ -34,7 +36,7 @@ function createWebmMuxer(video: MuxerVideoTrack, audio: MuxerAudioTrack | null):
     addAudioChunk: (chunk, metadata) => muxer.addAudioChunk(chunk, metadata),
     finish: () => {
       muxer.finalize();
-      return new Blob([muxer.target.buffer], { type: "video/webm" });
+      return file.blob("video/webm");
     },
   };
 }
@@ -42,8 +44,9 @@ function createWebmMuxer(video: MuxerVideoTrack, audio: MuxerAudioTrack | null):
 function createMp4Muxer(video: MuxerVideoTrack, audio: MuxerAudioTrack | null): Muxer {
   const videoCodec = video.codec === "V_VP9" ? "vp9" : video.codec;
   const audioCodec = audio?.codec === "A_OPUS" ? "opus" : audio?.codec;
+  const file = new ChunkedFile();
   const muxer = new Mp4Muxer({
-    target: new Mp4Target(),
+    target: new Mp4Target({ onData: (data, position) => file.write(data, position), chunked: true }),
     video: { codec: videoCodec, width: video.size.width, height: video.size.height, frameRate: video.fps },
     ...(audio && audioCodec ? { audio: { codec: audioCodec, sampleRate: audio.sampleRate, numberOfChannels: audio.channels } } : {}),
     fastStart: "in-memory",
@@ -54,7 +57,7 @@ function createMp4Muxer(video: MuxerVideoTrack, audio: MuxerAudioTrack | null): 
     addAudioChunk: (chunk, metadata) => muxer.addAudioChunk(chunk, metadata),
     finish: () => {
       muxer.finalize();
-      return new Blob([muxer.target.buffer], { type: "video/mp4" });
+      return file.blob("video/mp4");
     },
   };
 }
