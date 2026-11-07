@@ -9,7 +9,8 @@ import { EXPORT_SAMPLE_RATE } from "./audioEncoding";
 import { AudioMixer } from "./audioMixer";
 import { VideoFileEncoder, type EncodedVideo, type EncoderPreference, type VideoFormat } from "./encoder";
 
-const PREFETCH_FRAMES = 6;
+const PREFETCH_FRAMES = 12;
+const CACHED_FRAMES = PREFETCH_FRAMES * 2;
 const AUDIO_BLOCK_FRAMES = 4800;
 
 export type ExportResolution = "720" | "1080" | "1440" | "2160" | "source";
@@ -50,8 +51,8 @@ export async function exportVideo(
 
   const compositor = new Compositor(inputs);
   const watermark = watermarked ? await loadWatermark() : null;
-  const frames = media.frames.clone();
-  const camera = inputs.settings.camera.enabled ? media.camera?.clone() ?? null : null;
+  const frames = media.frames.clone(CACHED_FRAMES);
+  const camera = inputs.settings.camera.enabled ? media.camera?.clone(CACHED_FRAMES) ?? null : null;
   const clicks = inputs.settings.audio.clickSounds ? { times: clickTimes(media.pointer), samples: await loadClickSamples() } : null;
   const mixer = new AudioMixer(media.audio, inputs.settings.audio, map, clicks);
   const totalAudioFrames = Math.round((frameCount / options.fps) * EXPORT_SAMPLE_RATE);
@@ -68,6 +69,7 @@ export async function exportVideo(
       const cameraIndex = camera?.indexAt(time) ?? -1;
       const cameraFrame = camera && cameraIndex >= 0 ? await camera.decode(cameraIndex) : null;
       camera?.pin(cameraIndex);
+      camera?.prefetch(cameraIndex + 1, PREFETCH_FRAMES);
       compositor.render(ctx, size, time, frame, cameraFrame);
       if (watermark) paintWatermark(ctx, size, watermark);
       await encoder.addFrame(canvas, index);

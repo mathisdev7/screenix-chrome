@@ -1,9 +1,11 @@
 import type { Size } from "@/render/geometry";
 import { AudioTrackEncoder, planAudio } from "./audioEncoding";
 import { createMuxer, type Container, type Muxer, type MuxerVideoTrack } from "./muxer";
+import { YuvReader } from "./yuvReader";
 
 const BITS_PER_PIXEL_FRAME = 0.12;
 const MAX_ENCODE_QUEUE = 4;
+const MAX_READBACKS = 12;
 const KEYFRAME_INTERVAL_SECONDS = 2;
 
 export type VideoFormat = "mp4-h264" | "webm-vp9";
@@ -105,6 +107,7 @@ export class VideoFileEncoder {
   private readonly keyframeInterval: number;
   private lastKeyframe = -Infinity;
   private error: Error | null = null;
+  private readonly readbacks: { index: number; frame: Promise<VideoFrame> }[] = [];
 
   private constructor(
     plan: EncoderPlan,
@@ -112,6 +115,7 @@ export class VideoFileEncoder {
     private readonly audio: AudioTrackEncoder | null,
     private readonly format: VideoFormat,
     private readonly fps: number,
+    private readonly reader: YuvReader | null,
   ) {
     this.frameOptions = plan.frameOptions;
     this.keyframeInterval = Math.round(fps * KEYFRAME_INTERVAL_SECONDS);
@@ -134,18 +138,28 @@ export class VideoFileEncoder {
     if (withAudio && !audioPlan) throw new Error(`This browser can't encode audio for ${FORMAT_LABELS[choice.format]}. Try another format.`);
     const muxer = createMuxer(spec.container, { codec: spec.muxerCodec, size, fps }, audioPlan?.track ?? null);
     const audio = audioPlan ? new AudioTrackEncoder(audioPlan, muxer) : null;
-    return new VideoFileEncoder(plan, muxer, audio, choice.format, fps);
+    const reader = choice.encoder === "software" ? await YuvReader.create(size) : null;
+    return new VideoFileEncoder(plan, muxer, audio, choice.format, fps, reader);
   }
 
   async addFrame(canvas: OffscreenCanvas, index: number) {
     if (this.error) throw this.error;
+    const timestamp = Math.round((index * 1_000_000) / this.fps);
+    const duration = Math.round(1_000_000 / this.fps);
+    if (!this.reader) return this.encode(index, new VideoFrame(canvas, { timestamp, duration }));
+    this.readbacks.push({ index, frame: this.reader.read(canvas, timestamp, duration) });
+    while (this.readbacks.length > MAX_READBACKS) await this.encodeNext();
+  }
+
+  private async encodeNext() {
+    const next = this.readbacks.shift();
+    if (next) await this.encode(next.index, await next.frame);
+  }
+
+  private async encode(index: number, frame: VideoFrame) {
     while (this.encoder.encodeQueueSize > MAX_ENCODE_QUEUE) {
       await new Promise((resolve) => this.encoder.addEventListener("dequeue", resolve, { once: true }));
     }
-    const frame = new VideoFrame(canvas, {
-      timestamp: Math.round((index * 1_000_000) / this.fps),
-      duration: Math.round(1_000_000 / this.fps),
-    });
     const keyFrame = index - this.lastKeyframe >= this.keyframeInterval;
     if (keyFrame) this.lastKeyframe = index;
     this.encoder.encode(frame, { ...this.frameOptions, keyFrame });
@@ -157,14 +171,18 @@ export class VideoFileEncoder {
   }
 
   async finish(): Promise<EncodedVideo> {
+    while (this.readbacks.length > 0) await this.encodeNext();
     await Promise.all([this.encoder.flush(), this.audio?.flush()]);
     if (this.error) throw this.error;
     this.encoder.close();
+    this.reader?.dispose();
     return { blob: this.muxer.finish(), format: this.format, extension: FORMATS[this.format].container };
   }
 
   cancel() {
     if (this.encoder.state !== "closed") this.encoder.close();
     this.audio?.cancel();
+    for (const { frame } of this.readbacks.splice(0)) void frame.then((pending) => pending.close(), () => undefined);
+    this.reader?.dispose();
   }
 }

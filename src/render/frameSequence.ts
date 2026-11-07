@@ -10,12 +10,12 @@ export class FrameSequence {
 
   private readonly frames: FrameRecord[];
 
-  constructor(frames: readonly FrameRecord[]) {
+  constructor(frames: readonly FrameRecord[], private readonly cacheSize = CACHE_SIZE) {
     this.frames = [...frames];
   }
 
-  clone(): FrameSequence {
-    return new FrameSequence(this.frames);
+  clone(cacheSize = this.cacheSize): FrameSequence {
+    return new FrameSequence(this.frames, cacheSize);
   }
 
   append(records: readonly FrameRecord[]) {
@@ -106,7 +106,7 @@ export class FrameSequence {
 
   private evict() {
     for (const [index, bitmap] of this.cache) {
-      if (this.cache.size <= CACHE_SIZE) return;
+      if (this.cache.size <= this.cacheSize) return;
       if (index === this.pinned) continue;
       this.cache.delete(index);
       bitmap.close();
