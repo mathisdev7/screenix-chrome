@@ -6,7 +6,7 @@ import {
   type RecordingStatus,
   type TrackerControlMessage,
 } from "@/shared/messages";
-import { cameraBubbleOf, readCaptureSettings, separateMediaSettings, type CaptureSettings } from "@/shared/captureSettings";
+import { cameraBubbleOf, readCaptureSettings, separateMediaSettings, writeCaptureSettings, type CaptureSettings } from "@/shared/captureSettings";
 import { readCameraBubbleStyle } from "@/shared/cameraBubbleStyle";
 import { cameraPageUrl, issueCameraPageToken, revokeCameraPageToken } from "@/shared/cameraPage";
 import { COUNTDOWN_PORT_NAME, type CountdownCamera } from "@/shared/countdown";
@@ -20,7 +20,7 @@ import { RecordingSession } from "./recordingSession";
 
 const LICENSE_REFRESH_ALARM = "license-refresh";
 const LICENSE_REFRESH_PERIOD_MINUTES = 12 * 60;
-const DEBUGGER_BAR_SETTLE_MS = 500;
+const DEBUGGER_BAR_SETTLE_SECONDS = 0.5;
 
 let session: RecordingSession | null = null;
 let countdown: Countdown | null = null;
@@ -45,20 +45,27 @@ function recordedCameraBubbleUrl(capture: CaptureSettings, cameraToken: string |
 }
 
 async function countDown(windowId: number, capture: CaptureSettings, cameraToken: string | null, upcoming: RecordingSession): Promise<Countdown | null> {
-  const running = new Countdown(capture.countdown, await countdownCamera(capture, cameraToken));
+  const running = capture.countdown > 0
+    ? new Countdown(capture.countdown, await countdownCamera(capture, cameraToken), true)
+    : new Countdown(DEBUGGER_BAR_SETTLE_SECONDS, null, false);
   countdown = running;
   try {
-    await setStatus({ state: "countdown", endsAt: running.endsAt });
     const [tab] = await chrome.tabs.query({ active: true, windowId });
     if (tab?.id !== undefined) void upcoming.prepare(tab.id);
-    const preparing = MediaCapture.prepare(separateMediaSettings(capture)).then(
-      () => null,
-      (error: unknown) => {
-        running.cancel();
-        return error instanceof Error ? error : new Error(String(error));
-      },
-    );
-    const completed = await running.run(tab?.id);
+    const confirmed = await running.confirm(tab?.id, capture.debuggerBarNotice);
+    if (running.hidesNoticeForever) await writeCaptureSettings({ ...(await readCaptureSettings()), debuggerBarNotice: false });
+    let preparing: Promise<Error | null> = Promise.resolve(null);
+    if (confirmed) {
+      await setStatus({ state: "countdown", endsAt: running.start() });
+      preparing = MediaCapture.prepare(separateMediaSettings(capture)).then(
+        () => null,
+        (error: unknown) => {
+          running.cancel();
+          return error instanceof Error ? error : new Error(String(error));
+        },
+      );
+    }
+    const completed = await running.finish();
     const failure = await preparing;
     if (failure) throw failure;
     if (completed) return running;
@@ -69,13 +76,6 @@ async function countDown(windowId: number, capture: CaptureSettings, cameraToken
   }
 }
 
-async function attachBeforeRecording(windowId: number, upcoming: RecordingSession) {
-  const [tab] = await chrome.tabs.query({ active: true, windowId });
-  if (tab?.id === undefined) return;
-  await upcoming.prepare(tab.id);
-  await new Promise((resolve) => setTimeout(resolve, DEBUGGER_BAR_SETTLE_MS));
-}
-
 async function startRecording(windowId: number) {
   if (status.state !== "idle") return;
   await setStatus({ state: "starting" });
@@ -84,18 +84,14 @@ async function startRecording(windowId: number) {
     const capture = await readCaptureSettings();
     const cameraToken = capture.cameraId ? await issueCameraPageToken() : null;
     started = new RecordingSession(windowId, capture, recordedCameraBubbleUrl(capture, cameraToken), () => void stopRecording());
-    if (capture.countdown > 0) {
-      const finished = await countDown(windowId, capture, cameraToken, started);
-      if (!finished) {
-        await started.abort();
-        await revokeCameraPageToken();
-        await setStatus({ state: "idle" });
-        return;
-      }
-      started.setStartPointer(finished.pointer);
-    } else {
-      await attachBeforeRecording(windowId, started);
+    const finished = await countDown(windowId, capture, cameraToken, started);
+    if (!finished) {
+      await started.abort();
+      await revokeCameraPageToken();
+      await setStatus({ state: "idle" });
+      return;
     }
+    started.setStartPointer(finished.pointer);
     await setStatus({ state: "starting" });
     session = started;
     await started.start();
@@ -214,7 +210,7 @@ chrome.tabs.onUpdated.addListener((tabId, change) => session?.handleTabUpdated(t
 
 chrome.commands.onCommand.addListener(async (command) => {
   if (command !== "toggle-recording") return;
-  if (status.state === "recording" || status.state === "countdown") {
+  if (status.state === "recording" || countdown) {
     await stopRecording();
     return;
   }

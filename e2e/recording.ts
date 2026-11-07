@@ -184,7 +184,7 @@ async function run(mode: Mode): Promise<RecordingReport> {
     await devtools.evaluate(editor, `(async () => {
       const [tab] = await chrome.tabs.query({ url: "${origin}/*" });
       await chrome.tabs.update(tab.id, { active: true });
-      await chrome.storage.local.set({ captureSettings: { microphoneId: "default", cameraId: "default", tabAudio: false, mode: "${mode}", instantLook: "full", instantZoom: true } });
+      await chrome.storage.local.set({ captureSettings: { microphoneId: "default", cameraId: "default", tabAudio: false, mode: "${mode}", instantLook: "full", instantZoom: true, debuggerBarNotice: false } });
       window.recordingStarted = chrome.runtime.sendMessage({ type: "recording/start", windowId: tab.windowId });
     })()`);
     await sleep(500);

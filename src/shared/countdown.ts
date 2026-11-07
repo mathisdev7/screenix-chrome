@@ -10,7 +10,10 @@ export interface CountdownCamera extends PageCameraBubble {
   recorded: boolean;
 }
 
-export type CountdownCommand = { type: "show"; endsAt: number; camera: CountdownCamera | null } | { type: "hide"; completed: boolean };
+export type CountdownCommand =
+  | { type: "notice" }
+  | { type: "show"; endsAt: number; camera: CountdownCamera | null; dial: boolean }
+  | { type: "hide"; completed: boolean };
 
 export interface PagePoint {
   x: number;
@@ -21,4 +24,4 @@ export interface TabPoint extends PagePoint {
   tabId: number;
 }
 
-export type CountdownReply = { type: "cancel" } | { type: "hidden"; pointer: PagePoint | null };
+export type CountdownReply = { type: "cancel" } | { type: "noticed"; hideForever: boolean } | { type: "hidden"; pointer: PagePoint | null };

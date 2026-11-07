@@ -7,33 +7,57 @@ const BADGE_COLOR = "#c8b995";
 const BADGE_INK = "#1c1a15";
 const BADGE_DEFAULT_INK = "#ffffff";
 
+type Phase = "waiting" | "notice" | "counting" | "finished";
+
 export class Countdown {
-  readonly endsAt: number;
   private readonly overlays = new Set<chrome.runtime.Port>();
   private readonly done: Promise<boolean>;
   private settle: (completed: boolean) => void = () => undefined;
+  private readonly noticed: Promise<void>;
+  private answerNotice: () => void = () => undefined;
+  private phase: Phase = "waiting";
+  private canceled = false;
+  private noticeHiddenForever = false;
+  private endsAtMs = 0;
+  private timer: ReturnType<typeof setInterval> | undefined;
   private shown = -1;
-  private finished = false;
   private lastPointer: TabPoint | null = null;
 
-  constructor(seconds: number, private readonly camera: CountdownCamera | null) {
-    this.endsAt = Date.now() + seconds * 1000;
+  constructor(private readonly seconds: number, private readonly camera: CountdownCamera | null, private readonly dial: boolean) {
     this.done = new Promise((resolve) => {
       this.settle = resolve;
     });
+    this.noticed = new Promise((resolve) => {
+      this.answerNotice = resolve;
+    });
   }
 
-  async run(tabId: number | undefined): Promise<boolean> {
-    if (tabId !== undefined) void chrome.scripting.executeScript({ target: { tabId }, files: [OVERLAY_SCRIPT] }).catch(() => undefined);
-    await Promise.all([
+  async confirm(tabId: number | undefined, notice: boolean): Promise<boolean> {
+    if (notice) this.phase = "notice";
+    const injected = tabId === undefined
+      ? Promise.resolve(false)
+      : chrome.scripting.executeScript({ target: { tabId }, files: [OVERLAY_SCRIPT] }).then(() => true, () => false);
+    if (notice && await injected) await Promise.race([this.noticed, this.done]);
+    return !this.canceled;
+  }
+
+  start(): number {
+    this.endsAtMs = Date.now() + this.seconds * 1000;
+    this.phase = "counting";
+    this.overlays.forEach((port) => this.greet(port));
+    void Promise.all([
       chrome.action.setBadgeBackgroundColor({ color: BADGE_COLOR }),
       chrome.action.setBadgeTextColor({ color: BADGE_INK }),
     ]);
-    const timer = setInterval(() => void this.tick(), TICK_MS);
+    this.timer = setInterval(() => void this.tick(), TICK_MS);
     void this.tick();
+    return this.endsAtMs;
+  }
+
+  async finish(): Promise<boolean> {
     const completed = await this.done;
-    clearInterval(timer);
-    this.finished = true;
+    clearInterval(this.timer);
+    this.phase = "finished";
     await Promise.all([
       chrome.action.setBadgeText({ text: "" }),
       chrome.action.setBadgeTextColor({ color: BADGE_DEFAULT_INK }),
@@ -46,30 +70,47 @@ export class Countdown {
     return this.lastPointer;
   }
 
+  get hidesNoticeForever(): boolean {
+    return this.noticeHiddenForever;
+  }
+
   attach(port: chrome.runtime.Port) {
-    if (this.finished) {
+    if (this.phase === "finished") {
       port.disconnect();
       return;
     }
     this.overlays.add(port);
     port.onMessage.addListener((reply: CountdownReply) => {
       if (reply.type === "cancel") this.cancel();
+      if (reply.type === "noticed") {
+        this.noticeHiddenForever = reply.hideForever;
+        this.answerNotice();
+      }
     });
-    port.onDisconnect.addListener(() => this.overlays.delete(port));
-    this.post(port, { type: "show", endsAt: this.endsAt, camera: this.camera });
+    port.onDisconnect.addListener(() => {
+      this.overlays.delete(port);
+      if (this.overlays.size === 0) this.answerNotice();
+    });
+    this.greet(port);
   }
 
   cancel() {
+    this.canceled = true;
     this.settle(false);
   }
 
+  private greet(port: chrome.runtime.Port) {
+    if (this.phase === "notice") this.post(port, { type: "notice" });
+    if (this.phase === "counting") this.post(port, { type: "show", endsAt: this.endsAtMs, camera: this.camera, dial: this.dial });
+  }
+
   private async tick() {
-    const left = Math.ceil((this.endsAt - Date.now()) / 1000);
+    const left = Math.ceil((this.endsAtMs - Date.now()) / 1000);
     if (left <= 0) {
       this.settle(true);
       return;
     }
-    if (left === this.shown) return;
+    if (!this.dial || left === this.shown) return;
     this.shown = left;
     await chrome.action.setBadgeText({ text: String(left) });
   }

@@ -16,11 +16,12 @@ export interface CaptureSettings {
   instantStyle: InstantStyle;
   countdown: CountdownSeconds;
   cameraBubble: CameraBubble;
+  debuggerBarNotice: boolean;
 }
 
 const STORAGE_KEY = "captureSettings";
 
-const DEFAULT_CAPTURE_SETTINGS: CaptureSettings = { microphoneId: null, microphoneGain: 1, cameraId: null, tabAudio: true, mode: "studio", instantLook: "full", instantZoom: false, instantStyle: DEFAULT_INSTANT_STYLE, countdown: 3, cameraBubble: "countdown" };
+const DEFAULT_CAPTURE_SETTINGS: CaptureSettings = { microphoneId: null, microphoneGain: 1, cameraId: null, tabAudio: true, mode: "studio", instantLook: "full", instantZoom: false, instantStyle: DEFAULT_INSTANT_STYLE, countdown: 3, cameraBubble: "countdown", debuggerBarNotice: true };
 
 export async function readCaptureSettings(): Promise<CaptureSettings> {
   const stored = await chrome.storage.local.get(STORAGE_KEY);
