@@ -7,6 +7,7 @@ const BITS_PER_PIXEL_FRAME = 0.12;
 const MAX_ENCODE_QUEUE = 4;
 const MAX_READBACKS = 12;
 const KEYFRAME_INTERVAL_SECONDS = 2;
+const TRIAL_TIMEOUT_MS = 3000;
 
 export type VideoFormat = "mp4-h264" | "webm-vp9";
 
@@ -97,8 +98,58 @@ export async function encoderSupport(choice: EncoderChoice, size: Size, fps: num
   return { available: plan !== null, constantQuality: plan?.config.bitrateMode === "quantizer" };
 }
 
+async function encodesFrame(plan: EncoderPlan, size: Size): Promise<boolean> {
+  let produced = false;
+  let failed = false;
+  const encoder = new VideoEncoder({
+    output: () => {
+      produced = true;
+    },
+    error: () => {
+      failed = true;
+    },
+  });
+  const frame = new VideoFrame(new Uint8Array((size.width * size.height * 3) / 2), {
+    format: "I420",
+    codedWidth: size.width,
+    codedHeight: size.height,
+    timestamp: 0,
+  });
+  try {
+    encoder.configure(plan.config);
+    encoder.encode(frame, { ...plan.frameOptions, keyFrame: true });
+    const flushed = await Promise.race([
+      encoder.flush().then(() => true, () => false),
+      new Promise<false>((resolve) => setTimeout(() => resolve(false), TRIAL_TIMEOUT_MS)),
+    ]);
+    return flushed && produced && !failed;
+  } catch {
+    return false;
+  } finally {
+    frame.close();
+    if (encoder.state !== "closed") encoder.close();
+  }
+}
+
+export async function encoderWorks(choice: EncoderChoice, size: Size, fps: number): Promise<boolean> {
+  const plan = await planEncoder(choice, size, fps);
+  return plan !== null && encodesFrame(plan, size);
+}
+
+export const H264_ENCODERS: readonly EncoderChoice[] = [
+  { format: "mp4-h264", encoder: "hardware" },
+  { format: "mp4-h264", encoder: "software" },
+];
+
+export async function firstWorkingEncoder(candidates: readonly EncoderChoice[], size: Size, fps: number): Promise<EncoderChoice | null> {
+  for (const choice of candidates) {
+    if (await encoderWorks(choice, size, fps)) return choice;
+  }
+  return null;
+}
+
 export async function preferredEncoder(format: VideoFormat, size: Size, fps: number): Promise<EncoderPreference> {
-  return (await encoderSupport({ format, encoder: "hardware" }, size, fps)).available ? "hardware" : "software";
+  return (await encoderWorks({ format, encoder: "hardware" }, size, fps)) ? "hardware" : "software";
 }
 
 export class VideoFileEncoder {
