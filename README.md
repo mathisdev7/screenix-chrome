@@ -31,7 +31,7 @@ Screenix for Chrome records a tab without the system cursor, then redraws a smoo
 - **Zoom on clicks.** Auto zoom follows your clicks, or place manual zoom regions on the timeline.
 - **Camera, microphone and tab audio.** Record your voice and webcam with the tab. The camera bubble can be placed and styled in the editor or shown on the page while you record.
 - **Two modes.** Studio opens the recording in a full editor: backgrounds, browser frame, crop, aspect ratios, trims, cuts, speed clips and click sounds. Instant renders the polished video while you record, so it is ready the moment you stop.
-- **Local export up to 4K.** MP4 (AV1 or H.264) or WebM, at 30, 60 or 120 fps, encoded with WebCodecs on your machine. Recordings stay in the browser's storage until you export or share them.
+- **Local export up to 4K.** MP4 (H.264) or WebM (VP9), at 30, 60 or 120 fps, encoded with WebCodecs on your machine. Recordings stay in the browser's storage until you export or share them.
 - **Follows you across tabs.** Switch tabs or navigate while recording and the recording follows the active tab of the window you started in.
 
 Because capture uses the debugger API, Chrome shows a "started debugging this browser" bar while recording. Pages Chrome protects (`chrome://` pages, the Web Store) can't be recorded.

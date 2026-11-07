@@ -34,7 +34,7 @@ const FRAME_RATES = [
   { value: "120", label: "120 fps" },
 ] as const;
 
-const FORMATS = (["mp4-h264", "mp4-av1", "webm-vp9"] as const).map((value) => ({ value, label: FORMAT_LABELS[value] }));
+const FORMATS = (["mp4-h264", "webm-vp9"] as const).map((value) => ({ value, label: FORMAT_LABELS[value] }));
 
 const ENCODERS = [
   { value: "software", label: "Software" },
@@ -275,11 +275,8 @@ export function ExportDialog({ open, onOpenChange, media, inputs, license, onSha
             {support?.available === false && <span className="text-destructive"> · This encoder isn't available in your browser at this size.</span>}
             {support?.available && !support.constantQuality && (
               <span className="block pt-1 text-[#d9a45a]">
-                This encoder can't run at constant quality here, so very dark pages may look slightly blocky. MP4 · AV1 is cleaner, but not every device can play it.
+                This encoder can't run at constant quality here, so very dark pages may look slightly blocky.
               </span>
-            )}
-            {options.format === "mp4-av1" && (
-              <span className="block pt-1">AV1 is smaller and cleaner, but older iPhones and Macs and some sites, like X, can't play it. Pick H.264 to post it anywhere.</span>
             )}
           </p>
 

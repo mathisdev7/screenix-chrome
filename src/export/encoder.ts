@@ -6,7 +6,7 @@ const BITS_PER_PIXEL_FRAME = 0.12;
 const MAX_ENCODE_QUEUE = 4;
 const KEYFRAME_INTERVAL_SECONDS = 2;
 
-export type VideoFormat = "mp4-av1" | "mp4-h264" | "webm-vp9";
+export type VideoFormat = "mp4-h264" | "webm-vp9";
 
 export type EncoderPreference = "software" | "hardware";
 
@@ -20,16 +20,10 @@ interface FormatSpec {
   container: Container;
   codecs: readonly string[];
   muxerCodec: MuxerVideoTrack["codec"];
-  quantizer: { key: "av1" | "avc" | "vp9"; value: number };
+  quantizer: { key: "avc" | "vp9"; value: number };
 }
 
 const FORMATS: Record<VideoFormat, FormatSpec> = {
-  "mp4-av1": {
-    container: "mp4",
-    codecs: ["av01.0.13M.08", "av01.0.12M.08", "av01.0.08M.08"],
-    muxerCodec: "av1",
-    quantizer: { key: "av1", value: 24 },
-  },
   "mp4-h264": {
     container: "mp4",
     codecs: ["avc1.640034", "avc1.4d0034"],
@@ -50,7 +44,6 @@ const ACCELERATION: Record<EncoderPreference, HardwareAcceleration> = {
 };
 
 export const FORMAT_LABELS: Record<VideoFormat, string> = {
-  "mp4-av1": "MP4 · AV1",
   "mp4-h264": "MP4 · H.264",
   "webm-vp9": "WebM · VP9",
 };

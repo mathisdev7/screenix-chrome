@@ -5,7 +5,7 @@ import type { Size } from "@/render/geometry";
 export type Container = "mp4" | "webm";
 
 export interface MuxerVideoTrack {
-  codec: "av1" | "avc" | "V_VP9";
+  codec: "avc" | "V_VP9";
   size: Size;
   fps: number;
 }

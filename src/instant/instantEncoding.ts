@@ -4,8 +4,6 @@ import type { Size } from "@/render/geometry";
 const CANDIDATES: readonly EncoderChoice[] = [
   { format: "mp4-h264", encoder: "hardware", latency: "realtime" },
   { format: "mp4-h264", encoder: "software", latency: "realtime" },
-  { format: "mp4-av1", encoder: "hardware", latency: "realtime" },
-  { format: "mp4-av1", encoder: "software", latency: "realtime" },
 ];
 
 export async function instantEncoderChoice(size: Size, fps: number): Promise<EncoderChoice> {
