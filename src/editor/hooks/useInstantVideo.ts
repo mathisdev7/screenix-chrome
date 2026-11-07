@@ -5,7 +5,7 @@ import type { ProjectId } from "@/shared/types";
 
 export type InstantVideoState =
   | { status: "loading" }
-  | { status: "rendering"; progress: number }
+  | { status: "rendering"; progress: number; watermarked: boolean }
   | { status: "ready"; video: Blob; poster: Blob | null }
   | { status: "failed"; message: string };
 
@@ -16,7 +16,9 @@ async function readInstantVideo(projectId: ProjectId): Promise<InstantVideoState
     readInstantStatus(),
   ]);
   if (video) return { status: "ready", video, poster: poster ?? null };
-  if (instant?.projectId === projectId && instant.state === "rendering") return { status: "rendering", progress: instant.progress };
+  if (instant?.projectId === projectId && instant.state === "rendering") {
+    return { status: "rendering", progress: instant.progress, watermarked: instant.watermarked };
+  }
   if (instant?.projectId === projectId && instant.state === "failed") return { status: "failed", message: instant.error };
   return { status: "failed", message: "This recording has no instant video. You can still edit and export it in Studio." };
 }

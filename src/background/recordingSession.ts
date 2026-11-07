@@ -71,6 +71,10 @@ export class RecordingSession {
     return this.capture.mode === "instant";
   }
 
+  get instantWatermarked(): boolean {
+    return this.instant?.watermarked ?? true;
+  }
+
   async prepare(tabId: number): Promise<void> {
     await this.screencaster.attach(tabId).catch(() => undefined);
   }
@@ -176,6 +180,10 @@ export class RecordingSession {
     await putProject(project);
     if (!this.instant) await this.media?.close();
     return project;
+  }
+
+  async cancelInstant(): Promise<void> {
+    await this.media?.cancelInstant();
   }
 
   async finishInstant(duration: number): Promise<void> {

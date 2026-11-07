@@ -2,18 +2,12 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { BrowserPages } from "@/render/browserBar";
 import type { SceneInputs } from "@/render/compositor";
 import { loadCursorSprites, type CursorSprites } from "@/render/cursor/theme";
-import { buildCursorTimeline, type TimelinePoint } from "@/render/cursor/timeline";
+import { buildCursorTimeline } from "@/render/cursor/timeline";
 import type { ProjectMedia } from "@/render/projectMedia";
-import { visibleArea } from "@/render/geometry";
+import { buildFollow, buildZoom, toCropSpace, visibleSize } from "@/render/sceneInputs";
 import { loadWallpaper } from "@/render/wallpapers";
-import { FollowTimeline } from "@/render/zoom/followTimeline";
-import { ZoomTimeline } from "@/render/zoom/zoomTimeline";
 import type { CursorThemeId } from "@/shared/cursorThemes";
-import type { CropRect, EditorSettings } from "@/shared/settings";
-
-function toCropSpace(points: readonly TimelinePoint[], crop: CropRect): TimelinePoint[] {
-  return points.map(({ t, x, y }) => ({ t, x: (x - crop.x) / crop.width, y: (y - crop.y) / crop.height }));
-}
+import type { EditorSettings } from "@/shared/settings";
 
 function useCursorSprites(theme: CursorThemeId): CursorSprites | null {
   const [sprites, setSprites] = useState<CursorSprites | null>(null);
@@ -78,17 +72,12 @@ export function useSceneInputs(media: ProjectMedia, settings: EditorSettings) {
   const { crop } = settings;
   const { duration } = media.project;
   const points = useMemo(() => toCropSpace(timeline.raw, crop), [timeline.raw, crop]);
-  const { width: visibleWidth, height: visibleHeight } = visibleArea(settings, media.source) ?? { width: 1, height: 1 };
+  const { width: visibleWidth, height: visibleHeight } = visibleSize(settings, media.source);
   const follow = useMemo(
-    () => (visibleWidth < 1 || visibleHeight < 1 ? FollowTimeline.build(points, { width: visibleWidth, height: visibleHeight }, duration) : null),
+    () => buildFollow(points, { width: visibleWidth, height: visibleHeight }, duration),
     [points, visibleWidth, visibleHeight, duration],
   );
-  const zoom = useMemo(
-    () => (follow
-      ? ZoomTimeline.build(follow.windowClips(settings.zoom), follow.windowPoints(points), duration)
-      : ZoomTimeline.build(settings.zoom, points, duration)),
-    [settings.zoom, points, follow, duration],
-  );
+  const zoom = useMemo(() => buildZoom(settings.zoom, points, follow, duration), [settings.zoom, points, follow, duration]);
 
   const inputs = useMemo((): SceneInputs | null => (
     sprites ? { settings, source: media.source, timeline, zoom, follow, sprites, wallpaper: wallpaper.image, browser } : null

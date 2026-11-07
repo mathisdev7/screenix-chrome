@@ -8,9 +8,11 @@ import type { PageVisit } from "@/shared/types";
 export class InstantRecorder {
   private readonly worker = new Worker(new URL("../instant/instantRenderWorker.ts", import.meta.url), { type: "module" });
   private readonly result: Promise<void>;
+  private stop: (error: Error) => void = () => undefined;
 
   constructor(private readonly options: LiveRenderOptions, onProgress: (progress: number) => void) {
     this.result = new Promise((resolve, reject) => {
+      this.stop = reject;
       this.worker.addEventListener("message", (event: MessageEvent<InstantWorkerReply>) => {
         const reply = event.data;
         switch (reply.type) {
@@ -55,6 +57,7 @@ export class InstantRecorder {
 
   cancel() {
     this.worker.terminate();
+    this.stop(new Error("The instant video was canceled."));
   }
 
   private async sendSprites(width: number) {

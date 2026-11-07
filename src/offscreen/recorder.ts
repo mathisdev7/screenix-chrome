@@ -145,9 +145,12 @@ async function stop(): Promise<RecordedMedia> {
 
 async function finishInstant(duration: number): Promise<void> {
   const instant = finishing;
-  finishing = null;
   if (!instant) throw new Error("This recording has no instant video to finish.");
-  await instant.finish(duration);
+  try {
+    await instant.finish(duration);
+  } finally {
+    if (finishing === instant) finishing = null;
+  }
 }
 
 function describeError(error: unknown): string {
@@ -176,6 +179,9 @@ async function handle(request: OffscreenRequest): Promise<OffscreenResponse> {
         return { ok: true };
       case "instant/finish":
         await finishInstant(request.duration);
+        return { ok: true };
+      case "instant/cancel":
+        finishing?.cancel();
         return { ok: true };
     }
   } catch (error) {

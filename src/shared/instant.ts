@@ -46,7 +46,7 @@ export const INSTANT_VIDEO_ASSET_KEY = "instant-video";
 export const INSTANT_POSTER_ASSET_KEY = "instant-poster";
 
 export type InstantStatus =
-  | { projectId: ProjectId; state: "rendering"; progress: number }
+  | { projectId: ProjectId; state: "rendering"; progress: number; watermarked: boolean }
   | { projectId: ProjectId; state: "ready" }
   | { projectId: ProjectId; state: "failed"; error: string };
 

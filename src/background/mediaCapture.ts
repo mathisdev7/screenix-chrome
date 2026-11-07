@@ -87,6 +87,10 @@ export class MediaCapture {
     void sendToRecorder({ target: OFFSCREEN_TARGET, type: "instant/page", page }).catch(() => undefined);
   }
 
+  async cancelInstant(): Promise<void> {
+    await sendToRecorder({ target: OFFSCREEN_TARGET, type: "instant/cancel" }).catch(() => undefined);
+  }
+
   async finishInstant(duration: number): Promise<void> {
     const response = await sendToRecorder({ target: OFFSCREEN_TARGET, type: "instant/finish", duration });
     if (!response.ok) throw new Error(response.error);

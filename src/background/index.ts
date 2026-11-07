@@ -25,6 +25,7 @@ const DEBUGGER_BAR_SETTLE_SECONDS = 0.5;
 let session: RecordingSession | null = null;
 let countdown: Countdown | null = null;
 let status: RecordingStatus = { state: "idle" };
+let finishingInstant: { projectId: ProjectId; session: RecordingSession; canceled: boolean } | null = null;
 
 async function setStatus(next: RecordingStatus) {
   status = next;
@@ -121,26 +122,35 @@ async function stopRecording() {
     await chrome.tabs.create({ url: chrome.runtime.getURL(`editor.html?project=${project.id}`) });
     return;
   }
-  await writeInstantStatus({ projectId: project.id, state: "rendering", progress: 0 });
+  await writeInstantStatus({ projectId: project.id, state: "rendering", progress: 0, watermarked: finished.instantWatermarked });
   void finishInstant(finished, project);
   await chrome.tabs.create({ url: chrome.runtime.getURL(`editor.html?instant=${project.id}`) });
 }
 
 async function finishInstant(finished: RecordingSession, project: ProjectRecord) {
   const projectId = project.id;
+  const finishing = { projectId, session: finished, canceled: false };
+  finishingInstant = finishing;
   try {
     await finished.finishInstant(project.duration);
     await writeInstantStatus({ projectId, state: "ready" });
   } catch (error) {
-    await writeInstantStatus({ projectId, state: "failed", error: error instanceof Error ? error.message : String(error) });
+    if (!finishing.canceled) await writeInstantStatus({ projectId, state: "failed", error: error instanceof Error ? error.message : String(error) });
   } finally {
+    if (finishingInstant === finishing) finishingInstant = null;
     await setStatus({ state: "idle" });
   }
 }
 
+async function cancelInstant(projectId: ProjectId) {
+  if (finishingInstant?.projectId !== projectId) return;
+  finishingInstant.canceled = true;
+  await finishingInstant.session.cancelInstant();
+}
+
 async function updateInstantProgress(projectId: ProjectId, progress: number) {
   const current = await readInstantStatus();
-  if (current?.projectId === projectId && current.state === "rendering") await writeInstantStatus({ projectId, state: "rendering", progress });
+  if (current?.projectId === projectId && current.state === "rendering") await writeInstantStatus({ ...current, progress });
 }
 
 async function activateFromPage(licenseKey: string, sender: chrome.runtime.MessageSender) {
@@ -163,6 +173,9 @@ async function handleRequest(request: BackgroundRequest, sender: chrome.runtime.
         break;
       case "instant/progress":
         await updateInstantProgress(request.projectId, request.progress);
+        break;
+      case "instant/cancel":
+        await cancelInstant(request.projectId);
         break;
     }
     return { ok: true };

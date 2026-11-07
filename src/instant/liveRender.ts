@@ -13,6 +13,7 @@ import { ZoomTimeline } from "@/render/zoom/zoomTimeline";
 import { getCameraFramesAfter, getFramesAfter, getPointerBatchesAfter } from "@/shared/db";
 import type { EditorSettings } from "@/shared/settings";
 import type { AudioTrackKind, ProjectId } from "@/shared/types";
+import { Cadence } from "./cadence";
 import { instantEncoderChoice } from "./instantEncoding";
 import { LiveAudioMixer, type LiveAudioChunk } from "./liveAudioMixer";
 import { LiveCursorTimeline, POINTER_LOOKAHEAD } from "./liveCursorTimeline";
@@ -68,6 +69,10 @@ function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T
   return Promise.race([promise, new Promise<T>((resolve) => setTimeout(() => resolve(fallback), ms))]);
 }
 
+function frameCountFor(duration: number): number {
+  return Math.max(1, Math.ceil(duration * FPS));
+}
+
 function hasRecentClick(clicks: readonly ClickEvent[], time: number): boolean {
   for (let index = clicks.length - 1; index >= 0 && clicks[index].t > time - CLICK_EFFECT_WINDOW; index--) {
     if (clicks[index].kind === "down" && clicks[index].t <= time) return true;
@@ -81,6 +86,7 @@ export class LiveRender {
   private readonly cursor: LiveCursorTimeline;
   private readonly audio: LiveAudioMixer;
   private readonly zoom: LiveZoom | null;
+  private readonly cadence = new Cadence();
   private readonly lastSeq = { frames: -1, camera: -1, pointer: -1 };
   private readonly pages: BrowserPage[] = [];
   private browser = BrowserPages.empty;
@@ -119,6 +125,7 @@ export class LiveRender {
 
   finish(duration: number) {
     this.duration = duration;
+    this.onProgress(this.nextFrame / frameCountFor(duration));
     this.wake?.();
   }
 
@@ -130,6 +137,7 @@ export class LiveRender {
         if (duration !== null) return await this.complete(duration);
         const knownUntil = (Date.now() - this.options.startedAt) / 1000 - ARRIVAL_SLACK;
         this.cursor.advance(knownUntil);
+        this.cadence.update(knownUntil - POINTER_LOOKAHEAD - this.nextFrame / FPS);
         await this.renderUntil(knownUntil - POINTER_LOOKAHEAD);
         await this.encodeAudio(this.audio.availableFrames());
         await this.sleep();
@@ -146,13 +154,10 @@ export class LiveRender {
   private async complete(duration: number): Promise<LiveRenderResult> {
     this.cursor.finish(duration);
     this.zoom?.finish(duration);
-    const frameCount = Math.max(1, Math.ceil(duration * FPS));
+    const frameCount = frameCountFor(duration);
     const output = this.output ?? await this.createOutput();
     this.output = output;
-    for (; this.nextFrame < frameCount; this.nextFrame++) {
-      await this.renderFrame(output, this.nextFrame, duration, this.nextFrame === frameCount - 1);
-      if (this.nextFrame % PROGRESS_EVERY_FRAMES === 0) this.onProgress(this.nextFrame / frameCount);
-    }
+    for (; this.nextFrame < frameCount; this.nextFrame++) await this.renderFrame(output, this.nextFrame, duration, this.nextFrame === frameCount - 1);
     await this.encodeAudio(Math.round((frameCount / FPS) * EXPORT_SAMPLE_RATE));
     const video = await output.encoder.finish();
     return { video, poster: this.poster };
@@ -233,9 +238,10 @@ export class LiveRender {
   }
 
   private async renderFrame(output: Output, index: number, target: number, last: boolean) {
+    if (this.duration !== null && index % PROGRESS_EVERY_FRAMES === 0) this.onProgress(index / frameCountFor(this.duration));
     const time = index / FPS;
     const catchingUp = target - time > CATCH_UP_SECONDS;
-    if (catchingUp && index % 2 === 1 && !last) return;
+    if (!last && (this.cadence.skips(index) || (catchingUp && index % 2 === 1))) return;
     const frameIndex = this.frames.indexAt(time);
     const frame = frameIndex >= 0 ? await this.frames.decode(frameIndex) : null;
     this.frames.pin(frameIndex);

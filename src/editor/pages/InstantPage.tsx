@@ -1,4 +1,4 @@
-import { IconDownload, IconHome, IconLink, IconLoader2, IconMoon, IconPencil, IconSun, IconTrash } from "@tabler/icons-react";
+import { IconDownload, IconHome, IconLink, IconMoon, IconPencil, IconSun, IconTrash } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
 import { saveVideoFile } from "@/export/saveVideo";
 import { deleteProject, getProject, putProject } from "@/shared/db";
@@ -9,6 +9,7 @@ import { promptRatingIfDue } from "../components/RatingDialog";
 import { ShareStatus } from "../components/ShareStatus";
 import { IconButton, ProjectTitle } from "../components/TopBar";
 import { useInstantShare } from "../hooks/useInstantShare";
+import { useInstantTakeover } from "../hooks/useInstantTakeover";
 import { useInstantVideo, type InstantVideoState } from "../hooks/useInstantVideo";
 import { isSharing } from "../hooks/useShareLink";
 import { useTheme } from "../hooks/useTheme";
@@ -75,78 +76,115 @@ function InstantView({ initialProject, onHome, onEdit }: { initialProject: Proje
           </IconButton>
         </div>
       </header>
-      <main className="min-h-0 flex-1 overflow-y-auto bg-[var(--editor-workspace-background)] px-6 py-8">
-        <div className="mx-auto w-full max-w-[960px] space-y-4">
-          <Stage instant={instant} project={project} onEdit={onEdit} />
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              disabled={!ready || isSharing(share.state)}
-              onClick={() => void share.share()}
-              className="gold-button flex h-8 items-center gap-1.5 rounded-lg px-3 text-xs"
-            >
-              <IconLink size={14} stroke={2} />
-              {project.share ? "Copy link" : "Get share link"}
-            </button>
-            <button type="button" disabled={!ready} onClick={() => void download()} className={SECONDARY_BUTTON}>
-              <IconDownload size={14} stroke={2} />
-              Download MP4
-            </button>
-            <button type="button" onClick={onEdit} className={SECONDARY_BUTTON}>
-              <IconPencil size={14} stroke={2} />
-              Edit in Studio
-            </button>
-            <span className="ml-auto text-[12px] tabular-nums text-muted-foreground">
-              {formatDuration(project.duration)}
-              {ready && ` · ${formatFileSize(ready.video.size)}`}
-            </span>
-            <IconButton title="Delete recording" onClick={() => void remove()}>
-              <IconTrash size={15} stroke={1.8} />
-            </IconButton>
-          </div>
-          <ShareStatus share={share.state} />
+      <main className="min-h-0 flex-1 overflow-y-auto bg-[var(--editor-workspace-background)] px-6 py-10">
+        <div className="mx-auto w-full max-w-[960px]">
+          {instant.status === "ready" ? (
+            <div className="instant-reveal space-y-4">
+              <video
+                src={thumbnailUrl(instant.video)}
+                poster={instant.poster ? thumbnailUrl(instant.poster) : undefined}
+                controls
+                playsInline
+                className="block max-h-[68vh] w-full rounded-xl border bg-black"
+              />
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  disabled={isSharing(share.state)}
+                  onClick={() => void share.share()}
+                  className="gold-button flex h-8 items-center gap-1.5 rounded-lg px-3 text-xs"
+                >
+                  <IconLink size={14} stroke={2} />
+                  {project.share ? "Copy link" : "Get share link"}
+                </button>
+                <button type="button" onClick={() => void download()} className={SECONDARY_BUTTON}>
+                  <IconDownload size={14} stroke={2} />
+                  Download MP4
+                </button>
+                <button type="button" onClick={onEdit} className={SECONDARY_BUTTON}>
+                  <IconPencil size={14} stroke={2} />
+                  Edit in Studio
+                </button>
+                <span className="ml-auto text-[12px] tabular-nums text-muted-foreground">
+                  {formatDuration(project.duration)}, {formatFileSize(instant.video.size)}
+                </span>
+                <IconButton title="Delete recording" onClick={() => void remove()}>
+                  <IconTrash size={15} stroke={1.8} />
+                </IconButton>
+              </div>
+              <ShareStatus share={share.state} />
+            </div>
+          ) : (
+            <Finishing instant={instant} project={project} onEdit={onEdit} />
+          )}
         </div>
       </main>
     </div>
   );
 }
 
-function Stage({ instant, project, onEdit }: { instant: InstantVideoState; project: ProjectRecord; onEdit: () => void }) {
-  if (instant.status === "ready") {
-    return (
-      <video
-        src={thumbnailUrl(instant.video)}
-        poster={instant.poster ? thumbnailUrl(instant.poster) : undefined}
-        controls
-        playsInline
-        className="block max-h-[68vh] w-full rounded-xl border bg-black"
-      />
-    );
-  }
+function aspectRatioOf(project: ProjectRecord): string {
+  return project.width > 0 && project.height > 0 ? `${project.width} / ${project.height}` : "16 / 9";
+}
 
-  const aspectRatio = project.width > 0 && project.height > 0 ? `${project.width} / ${project.height}` : "16 / 9";
+function Finishing({ instant, project, onEdit }: { instant: Exclude<InstantVideoState, { status: "ready" }>; project: ProjectRecord; onEdit: () => void }) {
+  const takeover = useInstantTakeover(instant, project);
+  const thumbnail = project.thumbnail ? thumbnailUrl(project.thumbnail) : null;
+  if (takeover.status === "failed") return <Failure project={project} thumbnail={thumbnail} message={takeover.message} onEdit={onEdit} />;
+
+  const progress = takeover.status === "rendering" ? takeover.progress : instant.status === "rendering" ? instant.progress : 0;
+  const percent = Math.min(100, Math.round(progress * 100));
   return (
-    <div className="relative grid max-h-[68vh] w-full place-items-center overflow-hidden rounded-xl border bg-black" style={{ aspectRatio }}>
-      {project.thumbnail && <img src={thumbnailUrl(project.thumbnail)} alt="" className="absolute inset-0 size-full object-cover opacity-30 blur-sm" />}
-      <div className="relative w-[300px] space-y-3 text-center text-white">
-        {instant.status === "failed" ? (
+    <div className="space-y-5">
+      <div
+        role="progressbar"
+        aria-label="Finishing your video"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={percent}
+        className="relative max-h-[68vh] w-full overflow-hidden rounded-xl border bg-black"
+        style={{ aspectRatio: aspectRatioOf(project) }}
+      >
+        {thumbnail && (
           <>
-            <p className="text-[14px] font-semibold">The instant video couldn't be finished</p>
-            <p className="text-[12px] text-white/70">{instant.message}</p>
-            <button type="button" onClick={onEdit} className="gold-button h-8 rounded-lg px-3 text-xs">Open in Studio</button>
-          </>
-        ) : (
-          <>
-            <IconLoader2 size={22} className="mx-auto animate-spin" />
-            <p className="text-[14px] font-semibold">Finishing your video…</p>
-            <div className="h-1.5 overflow-hidden rounded-full bg-white/20">
-              <div
-                className="h-full rounded-full bg-white transition-[width]"
-                style={{ width: `${(instant.status === "rendering" ? instant.progress : 0) * 100}%` }}
-              />
-            </div>
+            <img src={thumbnail} alt="" className="absolute inset-0 size-full scale-105 object-cover opacity-35 blur-lg grayscale" />
+            <img
+              src={thumbnail}
+              alt=""
+              className="absolute inset-0 size-full object-cover transition-[clip-path] duration-500 ease-out motion-reduce:transition-none"
+              style={{ clipPath: `inset(0 ${100 - percent}% 0 0)` }}
+            />
           </>
         )}
+        {percent > 0 && percent < 100 && (
+          <div
+            className="absolute inset-y-0 w-px bg-ring shadow-[0_0_16px_2px_var(--color-ring)] transition-[left] duration-500 ease-out motion-reduce:transition-none"
+            style={{ left: `${percent}%` }}
+          />
+        )}
+      </div>
+      <div className="flex items-start justify-between gap-6">
+        <div className="space-y-1">
+          <p className="text-[15px] font-semibold">Finishing your video</p>
+          <p className="text-[13px] text-muted-foreground">It plays here as soon as it's ready.</p>
+        </div>
+        <span className="text-[15px] font-semibold tabular-nums">{percent}%</span>
+      </div>
+      <button type="button" onClick={onEdit} className="text-[12px] text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">
+        Edit in Studio instead
+      </button>
+    </div>
+  );
+}
+
+function Failure({ project, thumbnail, message, onEdit }: { project: ProjectRecord; thumbnail: string | null; message: string; onEdit: () => void }) {
+  return (
+    <div className="relative grid max-h-[68vh] w-full place-items-center overflow-hidden rounded-xl border bg-black" style={{ aspectRatio: aspectRatioOf(project) }}>
+      {thumbnail && <img src={thumbnail} alt="" className="absolute inset-0 size-full object-cover opacity-25 blur-md" />}
+      <div className="relative max-w-[340px] space-y-3 px-6 text-center text-white">
+        <p className="text-[15px] font-semibold">This video couldn't be finished</p>
+        <p className="text-[13px] text-white/70">{message}</p>
+        <button type="button" onClick={onEdit} className="gold-button h-8 rounded-lg px-3 text-xs">Open in Studio</button>
       </div>
     </div>
   );

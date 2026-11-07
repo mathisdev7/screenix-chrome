@@ -20,7 +20,8 @@ export type BackgroundRequest =
   | { type: "recording/start"; windowId: number }
   | { type: "recording/stop" }
   | { type: "license/activate-key"; licenseKey: string }
-  | { type: "instant/progress"; projectId: ProjectId; progress: number };
+  | { type: "instant/progress"; projectId: ProjectId; progress: number }
+  | { type: "instant/cancel"; projectId: ProjectId };
 
 export type BackgroundResponse = { ok: true } | { ok: false; error: string; code?: string; licenseId?: string };
 
@@ -62,7 +63,8 @@ export type OffscreenRequest =
   | { target: typeof OFFSCREEN_TARGET; type: "media/start"; capture: MediaCaptureRequest }
   | { target: typeof OFFSCREEN_TARGET; type: "media/stop" }
   | { target: typeof OFFSCREEN_TARGET; type: "instant/page"; page: PageVisit }
-  | { target: typeof OFFSCREEN_TARGET; type: "instant/finish"; duration: number };
+  | { target: typeof OFFSCREEN_TARGET; type: "instant/finish"; duration: number }
+  | { target: typeof OFFSCREEN_TARGET; type: "instant/cancel" };
 
 export interface RecordedMedia {
   audioTracks: AudioTrackInfo[];
