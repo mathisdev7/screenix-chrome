@@ -3,9 +3,10 @@ import { IconLoader2, IconX } from "@tabler/icons-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { encoderSupport, FORMAT_LABELS, preferredEncoder, type EncodedVideo, type EncoderPreference, type EncoderSupport } from "@/export/encoder";
 import { saveVideoFile } from "@/export/saveVideo";
-import { exportSize, exportVideo, type ExportFrameRate, type ExportOptions, type ExportResolution } from "@/export/exportVideo";
+import { exportFrameCount, exportSize, exportVideo, type ExportFrameRate, type ExportOptions, type ExportResolution } from "@/export/exportVideo";
 import type { SceneInputs } from "@/render/compositor";
 import type { ProjectMedia } from "@/render/projectMedia";
+import { TimeMap } from "@/render/timeMap";
 import { ActionButton, SegmentedControl } from "./controls";
 import { currentLicense, type License } from "@/shared/license";
 import { countExport } from "@/shared/rating";
@@ -14,7 +15,7 @@ import { openLicenseDialog, openLicensePricing } from "../hooks/useLicense";
 import { useProgressWindow } from "../hooks/useProgressWindow";
 import { isSharing, useShareLink } from "../hooks/useShareLink";
 import { rememberExport } from "../lib/exportCache";
-import { fileNameFor } from "../lib/format";
+import { fileNameFor, formatDuration } from "../lib/format";
 import { ProgressWindow } from "./ProgressWindow";
 import { promptRatingIfDue } from "./RatingDialog";
 import { ShareStatus } from "./ShareStatus";
@@ -74,14 +75,35 @@ type ExportIntent = "save" | "share";
 
 const SECONDARY_BUTTON = "min-h-[38px] w-full rounded-[9px] border px-3 text-[12px] font-medium transition-colors hover:bg-accent/70 disabled:opacity-45";
 
+interface RenderTiming {
+  seconds: number;
+  videoSeconds: number;
+  frames: number;
+}
+
 type ExportState =
   | { status: "idle" }
   | { status: "exporting"; progress: number }
-  | { status: "done"; video: EncodedVideo; fileName: string; save: SaveState | null }
+  | { status: "done"; video: EncodedVideo; fileName: string; save: SaveState | null; timing: RenderTiming }
   | { status: "error"; message: string };
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+async function timed<T>(run: () => Promise<T>): Promise<{ result: T; seconds: number }> {
+  const startedAt = performance.now();
+  const result = await run();
+  return { result, seconds: (performance.now() - startedAt) / 1000 };
+}
+
+function RenderTimingStatus({ timing }: { timing: RenderTiming }) {
+  return (
+    <p className="text-[11px] tabular-nums text-muted-foreground">
+      Rendered {formatDuration(timing.videoSeconds)} of video in {formatDuration(timing.seconds)} · {(timing.videoSeconds / timing.seconds).toFixed(2)}× real time ·{" "}
+      {Math.round(timing.frames / timing.seconds)} fps
+    </p>
+  );
 }
 
 function SaveStatus({ save }: { save: SaveState }) {
@@ -166,14 +188,22 @@ export function ExportDialog({ open, onOpenChange, media, inputs, license, onSha
     setState({ status: "exporting", progress: 0 });
     try {
       const watermarked = !(await currentLicense());
-      const video = await exportVideo(media, inputs, options, watermarked, (progress) => {
-        setState((current) => (current.status === "exporting" ? { status: "exporting", progress } : current));
-      }, controller.signal).finally(progressWindow.close);
+      const { result: video, seconds } = await timed(() =>
+        exportVideo(media, inputs, options, watermarked, (progress) => {
+          setState((current) => (current.status === "exporting" ? { status: "exporting", progress } : current));
+        }, controller.signal),
+      ).finally(progressWindow.close);
+      const videoSeconds = TimeMap.fromSettings(inputs.settings, media.project.duration).outputDuration;
+      const timing = {
+        seconds,
+        videoSeconds,
+        frames: exportFrameCount(videoSeconds, options.fps),
+      };
       rememberExport(media.project.id, inputs.settings, video, watermarked);
       const fileName = fileNameFor(media.project.name, video.extension);
-      if (intent === "save") await save(video, fileName);
+      if (intent === "save") await save(video, fileName, timing);
       else {
-        setState({ status: "done", video, fileName, save: null });
+        setState({ status: "done", video, fileName, save: null, timing });
         await shareLink.share(video);
       }
     } catch (error) {
@@ -185,8 +215,8 @@ export function ExportDialog({ open, onOpenChange, media, inputs, license, onSha
     }
   };
 
-  const save = async (video: EncodedVideo, fileName: string) => {
-    setState({ status: "done", video, fileName, save: { status: "saving" } });
+  const save = async (video: EncodedVideo, fileName: string, timing: RenderTiming) => {
+    setState({ status: "done", video, fileName, save: { status: "saving" }, timing });
     let result: SaveState;
     try {
       result = await saveVideoFile(video.blob, fileName);
@@ -264,6 +294,7 @@ export function ExportDialog({ open, onOpenChange, media, inputs, license, onSha
           {state.status === "exporting" && progressWindow.target && (
             <ProgressWindow target={progressWindow.target} label="Exporting" progress={state.progress} onCancel={() => abortRef.current?.abort()} />
           )}
+          {state.status === "done" && <RenderTimingStatus timing={state.timing} />}
           {state.status === "done" && state.save && <SaveStatus save={state.save} />}
           <ShareStatus share={shareLink.state} />
           {!shareable && <p className="text-[11px] text-muted-foreground">Share links use MP4 · H.264, so every viewer can play them.</p>}
@@ -282,7 +313,7 @@ export function ExportDialog({ open, onOpenChange, media, inputs, license, onSha
             {uploading && <ActionButton variant="danger" onClick={shareLink.reset}>Cancel upload</ActionButton>}
             {state.status === "done" && !uploading && (
               <>
-                <ActionButton disabled={state.save?.status === "saving"} onClick={() => void save(state.video, state.fileName)}>
+                <ActionButton disabled={state.save?.status === "saving"} onClick={() => void save(state.video, state.fileName, state.timing)}>
                   {state.save ? "Save again" : "Save"}
                 </ActionButton>
                 {shareLink.state.status === "shared" ? (

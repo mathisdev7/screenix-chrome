@@ -29,6 +29,10 @@ export function exportSize(settings: EditorSettings, source: Size, resolution: E
   return encoderSizeForShortSide(aspect, shortSide);
 }
 
+export function exportFrameCount(outputDuration: number, fps: ExportFrameRate): number {
+  return Math.max(1, Math.ceil(outputDuration * fps));
+}
+
 export async function exportVideo(
   media: ProjectMedia,
   inputs: SceneInputs,
@@ -39,7 +43,7 @@ export async function exportVideo(
 ): Promise<EncodedVideo> {
   const size = exportSize(inputs.settings, media.source, options.resolution);
   const map = TimeMap.fromSettings(inputs.settings, media.project.duration);
-  const frameCount = Math.max(1, Math.ceil(map.outputDuration * options.fps));
+  const frameCount = exportFrameCount(map.outputDuration, options.fps);
   const canvas = new OffscreenCanvas(size.width, size.height);
   const ctx = canvas.getContext("2d", { alpha: false });
   if (!ctx) throw new Error("Could not create a drawing surface for the export.");
